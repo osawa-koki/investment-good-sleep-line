@@ -1,0 +1,53 @@
+{
+  "name": "investment-good-sleep-line",
+  "description": "investment-good-sleep-line",
+  "author": "osawa-koki",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/osawa-koki/investment-good-sleep-line.git"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=10.0.0"
+  },
+  "private": false,
+  "type": "module",
+  "scripts": {
+    "dev": "next dev --port 8000",
+    "build": "next build",
+    "test": "playwright test",
+    "lint": "eslint --ext .ts,.tsx,.js,.jsx .",
+    "lint:fix": "eslint --fix --ext .ts,.tsx,.js,.jsx .",
+    "type-check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@types/node": "^22.14.1",
+    "bootstrap": "^5.3.5",
+    "next": "^15.2.4",
+    "react": "^18.3.1",
+    "react-bootstrap": "^2.10.9",
+    "react-dom": "^18.3.1",
+    "react-icons": "^5.5.0",
+    "react-modal": "^3.16.3",
+    "react-toastify": "^11.0.5",
+    "sass": "^1.86.3",
+    "typescript": "^5.8.2"
+  },
+  "devDependencies": {
+    "@next/eslint-plugin-next": "^15.2.4",
+    "@playwright/test": "^1.51.1",
+    "@types/bootstrap": "^5.2.10",
+    "@types/react": "^18.3.13",
+    "@types/react-bootstrap": "^0.32.37",
+    "@types/react-dom": "^18.3.1",
+    "@types/react-modal": "^3.16.3",
+    "@typescript-eslint/eslint-plugin": "^5.50.0",
+    "eslint": "^8.57.1",
+    "eslint-config-standard-with-typescript": "^37.0.0",
+    "eslint-plugin-import": "^2.31.0",
+    "eslint-plugin-n": "^16.6.2",
+    "eslint-plugin-promise": "^6.6.0",
+    "eslint-plugin-react": "^7.37.5"
+  }
+}

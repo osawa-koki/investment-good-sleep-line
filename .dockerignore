@@ -1,0 +1,15 @@
+/.devcontainer/
+/.github/
+/.next/
+/.vscode/
+/build/
+/docs/
+/node_modules/
+/tests/
+/.dockerignore
+/.editorconfig
+/.eslintrc.js
+/.gitignore
+/jest.config.js
+/LICENSE
+/README.md
