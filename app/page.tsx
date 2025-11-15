@@ -30,9 +30,14 @@ export default function Home (): React.JSX.Element {
               <p className='mb-2'><strong>リスク:</strong> {settings.risk}% / 年</p>
               <p className='mb-0'><strong>確率閾値:</strong> {settings.probabilityThreshold}%</p>
             </div>
-            <Link href='/settings'>
-              <Button variant='primary'>設定を変更</Button>
-            </Link>
+            <div className='d-flex gap-2'>
+              <Link href='/distribution'>
+                <Button variant='success'>シミュレーションを見る</Button>
+              </Link>
+              <Link href='/settings'>
+                <Button variant='primary'>設定を変更</Button>
+              </Link>
+            </div>
           </Card.Body>
         </Card>
       </div>
