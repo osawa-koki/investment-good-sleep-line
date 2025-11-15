@@ -59,13 +59,13 @@ const terms: Term[] = [
 export default function WordsPage (): React.JSX.Element {
   const searchParams = useSearchParams()
   const q = searchParams.get('q')
-  const termRefs = useRef<{ [key: string]: HTMLDivElement | null }>({})
+  const termRefs = useRef<Record<string, HTMLDivElement | null>>({})
 
   useEffect(() => {
-    if (q && termRefs.current[q]) {
+    if (q !== null && q !== '' && termRefs.current[q] !== null && termRefs.current[q] !== undefined) {
       // スクロール位置を調整（ヘッダー分のオフセットを考慮）
       const element = termRefs.current[q]
-      if (element) {
+      if (element !== null && element !== undefined) {
         const offset = 100 // ヘッダー分のオフセット
         const elementPosition = element.getBoundingClientRect().top + window.scrollY
         window.scrollTo({
