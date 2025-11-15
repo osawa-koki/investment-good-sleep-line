@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useMemo, useState } from 'react'
+import Link from 'next/link'
 import { Container, Card, Form, Row, Col, Table } from 'react-bootstrap'
 import {
   Chart as ChartJS,
@@ -219,13 +220,13 @@ export default function DistributionPage (): React.JSX.Element {
           <h5>統計情報（正規分布近似）</h5>
           <ul className="mb-0">
             <li>
-              平均（期待値）: {mean.toLocaleString('ja-JP', { maximumFractionDigits: 0 })} 円{' '}
+              <Link href="/words?q=mean" style={{ textDecoration: 'none' }}>平均（期待値）</Link>: {mean.toLocaleString('ja-JP', { maximumFractionDigits: 0 })} 円{' '}
               <span style={{ color: profit > 0 ? 'green' : profit < 0 ? 'red' : 'black' }}>
                 ({profit >= 0 ? '+' : ''}{profit.toLocaleString('ja-JP', { maximumFractionDigits: 0 })} 円 / {profit >= 0 ? '+' : ''}{((profit / investmentAmount) * 100).toFixed(1)}%)
               </span>
             </li>
-            <li>標準偏差: {stdDev.toLocaleString('ja-JP', { maximumFractionDigits: 0 })} 円</li>
-            <li>95%信頼区間: {lowerBound.toLocaleString('ja-JP', { maximumFractionDigits: 0 })} 円 〜 {upperBound.toLocaleString('ja-JP', { maximumFractionDigits: 0 })} 円</li>
+            <li><Link href="/words?q=stddev" style={{ textDecoration: 'none' }}>標準偏差</Link>: {stdDev.toLocaleString('ja-JP', { maximumFractionDigits: 0 })} 円</li>
+            <li><Link href="/words?q=confidence-interval" style={{ textDecoration: 'none' }}>95%信頼区間</Link>: {lowerBound.toLocaleString('ja-JP', { maximumFractionDigits: 0 })} 円 〜 {upperBound.toLocaleString('ja-JP', { maximumFractionDigits: 0 })} 円</li>
           </ul>
           <Form.Text className="text-muted d-block mt-2">
             ※ 正規分布で近似し、マイナス部分は切り捨てています。95%の確率で、{years}年後の資産はこの範囲内に収まります。
@@ -314,9 +315,9 @@ export default function DistributionPage (): React.JSX.Element {
             できない場合は、投資比率を下げてください。
             <br />
             <br />
-            よりローリスク・ローリターンにして対応することもできますが、MPTの観点からは投資比率を下げることが推奨されます。
+            よりローリスク・ローリターンにして対応することもできますが、<Link href="/words?q=mpt" style={{ textDecoration: 'none' }}>MPT</Link>の観点からは投資比率を下げることが推奨されます。
             <br />
-            詳しく知りたい方はトービンの分離定理を調べてみてください。
+            詳しく知りたい方は<Link href="/words?q=tobin-separation" style={{ textDecoration: 'none' }}>トービンの分離定理</Link>を調べてみてください。
           </div>
         </Card.Body>
       </Card>
