@@ -30,6 +30,9 @@ function Menu (props: Props): React.JSX.Element {
                   ? 'btn-primary active'
                   : ''
               }`}
+              onClick={() => {
+                setMenuOpen(false)
+              }}
             >
               {page.emoji}&nbsp;{page.name}
             </Link>
