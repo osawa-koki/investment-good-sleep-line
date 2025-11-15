@@ -1,7 +1,7 @@
 'use client'
 
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react'
-import { useSearchParams, usePathname } from 'next/navigation'
+import { usePathname } from 'next/navigation'
 
 export interface InvestmentSettings {
   totalAssets: number // 資産総額
@@ -12,11 +12,11 @@ export interface InvestmentSettings {
 }
 
 export const defaultSettings: InvestmentSettings = {
-  totalAssets: 10000000,
+  totalAssets: 1_000_000,
   investmentRatio: 50,
-  probabilityThreshold: 98,
-  expectedReturn: 8,
-  risk: 15
+  probabilityThreshold: 90.0,
+  expectedReturn: 7.5,
+  risk: 18.0
 }
 
 interface SettingsContextType {
@@ -27,61 +27,27 @@ interface SettingsContextType {
 
 const SettingsContext = createContext<SettingsContextType | undefined>(undefined)
 
+const STORAGE_KEY = 'investment-settings'
+
 export function SettingsProvider ({ children }: { children: React.ReactNode }): React.JSX.Element {
-  const searchParams = useSearchParams()
   const pathname = usePathname()
   const [settings, setSettings] = useState<InvestmentSettings>(defaultSettings)
   const [shouldUpdateUrl, setShouldUpdateUrl] = useState(false)
 
-  // URLパラメータから設定を復元
+  // 初回マウント時にlocalStorageから設定を読み込む
   useEffect(() => {
-    const urlSettings: Partial<InvestmentSettings> = {}
-
-    const totalAssets = searchParams.get('totalAssets')
-    const investmentRatio = searchParams.get('investmentRatio')
-    const probabilityThreshold = searchParams.get('probabilityThreshold')
-    const expectedReturn = searchParams.get('expectedReturn')
-    const risk = searchParams.get('risk')
-
-    if (totalAssets !== null) {
-      const parsed = parseFloat(totalAssets)
-      if (!isNaN(parsed) && parsed > 0) {
-        urlSettings.totalAssets = parsed
+    if (typeof window !== 'undefined') {
+      const stored = localStorage.getItem(STORAGE_KEY)
+      if (stored !== null) {
+        try {
+          const parsed = JSON.parse(stored) as InvestmentSettings
+          setSettings(parsed)
+        } catch (error) {
+          console.error('Failed to parse stored settings:', error)
+        }
       }
     }
-
-    if (investmentRatio !== null) {
-      const parsed = parseFloat(investmentRatio)
-      if (!isNaN(parsed) && parsed >= 0 && parsed <= 100) {
-        urlSettings.investmentRatio = parsed
-      }
-    }
-
-    if (probabilityThreshold !== null) {
-      const parsed = parseFloat(probabilityThreshold)
-      if (!isNaN(parsed) && parsed >= 0 && parsed <= 100) {
-        urlSettings.probabilityThreshold = parsed
-      }
-    }
-
-    if (expectedReturn !== null) {
-      const parsed = parseFloat(expectedReturn)
-      if (!isNaN(parsed)) {
-        urlSettings.expectedReturn = parsed
-      }
-    }
-
-    if (risk !== null) {
-      const parsed = parseFloat(risk)
-      if (!isNaN(parsed) && parsed >= 0) {
-        urlSettings.risk = parsed
-      }
-    }
-
-    if (Object.keys(urlSettings).length > 0) {
-      setSettings(prev => ({ ...prev, ...urlSettings }))
-    }
-  }, [searchParams])
+  }, [])
 
   // URLを更新するuseEffect（settingsが変更された時のみ）
   useEffect(() => {
@@ -100,12 +66,23 @@ export function SettingsProvider ({ children }: { children: React.ReactNode }): 
   }, [settings, shouldUpdateUrl, pathname])
 
   const updateSettings = useCallback((newSettings: Partial<InvestmentSettings>) => {
-    setSettings(prev => ({ ...prev, ...newSettings }))
+    setSettings(prev => {
+      const updated = { ...prev, ...newSettings }
+      // localStorageに保存（丸め処理は呼び出し側で実施済み）
+      if (typeof window !== 'undefined') {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(updated))
+      }
+      return updated
+    })
     setShouldUpdateUrl(true)
   }, [])
 
   const resetSettings = useCallback(() => {
     setSettings(defaultSettings)
+    // localStorageから削除
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem(STORAGE_KEY)
+    }
     // URLパラメータをクリア（次のレンダリングで反映される）
     setTimeout(() => {
       window.history.replaceState({}, '', pathname)

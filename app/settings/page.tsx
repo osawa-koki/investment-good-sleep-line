@@ -15,12 +15,12 @@ interface AssetClass {
 }
 
 const assetClasses: AssetClass[] = [
-  { name: '国内株式', expectedReturn: 5.0, risk: 20.0 },
-  { name: '先進国株式', expectedReturn: 7.0, risk: 22.0 },
-  { name: '新興国株式', expectedReturn: 8.5, risk: 28.0 },
-  { name: '世界株式', expectedReturn: 7.5, risk: 23.0 },
+  { name: '国内株式', expectedReturn: 5.0, risk: 15.0 },
+  { name: '先進国株式', expectedReturn: 7.0, risk: 17.0 },
+  { name: '新興国株式', expectedReturn: 8.5, risk: 23.0 },
+  { name: '世界株式', expectedReturn: 7.5, risk: 18.0 },
   { name: '国内債券', expectedReturn: 1.0, risk: 3.0 },
-  { name: '先進国債券', expectedReturn: 2.5, risk: 8.0 }
+  { name: '先進国債券', expectedReturn: 2.5, risk: 5.0 }
 ]
 
 export default function SettingsPage (): React.JSX.Element {
@@ -31,6 +31,9 @@ export default function SettingsPage (): React.JSX.Element {
 
   // モーダル状態
   const [isResetModalOpen, setIsResetModalOpen] = useState(false)
+
+  // 初回マウント時かどうかを追跡
+  const isInitialMount = React.useRef(true)
 
   // 未保存の変更があるかチェック
   const hasUnsavedChanges = useMemo(() => {
@@ -43,13 +46,24 @@ export default function SettingsPage (): React.JSX.Element {
     )
   }, [formData, settings])
 
-  // settingsが変更されたらフォームも更新
+  // 初回マウント時のみsettingsからフォームを初期化
   useEffect(() => {
-    setFormData(settings)
+    if (isInitialMount.current) {
+      setFormData(settings)
+      isInitialMount.current = false
+    }
   }, [settings])
 
   const handleChange = (field: keyof InvestmentSettings) => (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = parseFloat(e.target.value)
+    const inputValue = e.target.value
+
+    // 空文字列の場合は0として扱う
+    if (inputValue === '') {
+      setFormData(prev => ({ ...prev, [field]: 0 }))
+      return
+    }
+
+    const value = parseFloat(inputValue)
     if (!isNaN(value)) {
       setFormData(prev => ({ ...prev, [field]: value }))
     }
@@ -79,7 +93,19 @@ export default function SettingsPage (): React.JSX.Element {
       return
     }
 
-    updateSettings(formData)
+    // 保存前に丸め処理を適用した値を作成
+    const normalizedData: InvestmentSettings = {
+      ...formData,
+      probabilityThreshold: Math.round(formData.probabilityThreshold * 10) / 10,
+      expectedReturn: Math.round(formData.expectedReturn * 10) / 10,
+      risk: Math.round(formData.risk * 10) / 10
+    }
+
+    // 丸められた値でformDataも更新
+    setFormData(normalizedData)
+
+    // 丸められた値で保存
+    updateSettings(normalizedData)
     toast.success('設定を保存しました。')
   }
 
@@ -121,17 +147,27 @@ export default function SettingsPage (): React.JSX.Element {
             <Row>
               <Col md={6}>
                 <Form.Group className="mb-3">
-                  <Form.Label>資産総額 (円)</Form.Label>
+                  <Form.Label>資産総額 (万円)</Form.Label>
                   <Form.Control
                     type="number"
-                    value={formData.totalAssets}
-                    onChange={handleChange('totalAssets')}
+                    value={formData.totalAssets / 10000}
+                    onChange={(e) => {
+                      const inputValue = e.target.value
+                      if (inputValue === '') {
+                        setFormData(prev => ({ ...prev, totalAssets: 0 }))
+                        return
+                      }
+                      const value = Number(inputValue)
+                      if (!isNaN(value)) {
+                        setFormData(prev => ({ ...prev, totalAssets: value * 10000 }))
+                      }
+                    }}
                     min={0}
-                    step={100000}
+                    step={1}
                     required
                   />
                   <Form.Text className="text-muted">
-                    あなたの総資産額を入力してください。
+                    あなたの総資産額を万円単位で入力してください。
                   </Form.Text>
                 </Form.Group>
               </Col>
