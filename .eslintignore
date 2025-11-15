@@ -1,0 +1,4 @@
+/build/
+/out/
+/playwright-report/
+/playwright.config.ts
