@@ -22,7 +22,7 @@
     "type-check": "tsc --noEmit"
   },
   "dependencies": {
-    "@types/node": "^22.14.1",
+    "@types/node": "^24.10.1",
     "bootstrap": "^5.3.5",
     "next": "^16.0.3",
     "react": "^18.3.1",
