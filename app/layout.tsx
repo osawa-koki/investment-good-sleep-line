@@ -30,7 +30,7 @@ export default function RootLayout ({
     <html lang="ja">
       <head>
         <meta charSet='utf-8' />
-        <link rel="shortcut icon" href="/favicon.ico" type="image/x-icon" />
+        <link rel="shortcut icon" href={`${setting.basePath ?? ''}/favicon.ico`} type="image/x-icon" />
         <meta name='viewport' content='initial-scale=1.0, width=device-width' />
         <title>{setting.title}</title>
         <meta name='description' content={setting.description} />
