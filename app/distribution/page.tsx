@@ -301,6 +301,23 @@ export default function DistributionPage (): React.JSX.Element {
             ※ 下位{(100 - currentProbabilityThreshold).toFixed(1)}%の確率でこの値を下回ります。<br />
             ※ 資産全体 = 投資部分（{worstCaseAssets.toLocaleString('ja-JP', { maximumFractionDigits: 0 })} 円）+ 非投資部分（{nonInvestmentAssets.toLocaleString('ja-JP', { maximumFractionDigits: 0 })} 円）
           </Form.Text>
+          <div className="alert alert-info mt-3" role="alert">
+            <strong>💤 安眠チェック</strong><br />
+            通常起こり得る確率範囲（{currentProbabilityThreshold}%）での最悪のケースで、資産全体が{' '}
+            <strong>{totalAssetsWorstCase.toLocaleString('ja-JP', { maximumFractionDigits: 0 })} 円</strong>
+            （<strong>{totalAssetsChange >= 0 ? '+' : ''}{totalAssetsChange.toLocaleString('ja-JP', { maximumFractionDigits: 0 })} 円</strong> /
+            <strong>{totalAssetsChange >= 0 ? '+' : ''}{((totalAssetsChange / settings.totalAssets) * 100).toFixed(1)}%</strong>）
+            にまで{totalAssetsChange >= 0 ? '増加' : '減少'}する可能性があります。
+            <br />
+            <br />
+            <strong>安眠できますか？</strong><br />
+            できない場合は、投資比率を下げてください。
+            <br />
+            <br />
+            よりローリスク・ローリターンにして対応することもできますが、MPTの観点からは投資比率を下げることが推奨されます。
+            <br />
+            詳しく知りたい方はトービンの分離定理を調べてみてください。
+          </div>
         </Card.Body>
       </Card>
     </Container>
