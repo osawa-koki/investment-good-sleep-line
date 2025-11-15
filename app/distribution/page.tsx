@@ -19,7 +19,8 @@ import { useSettings } from '@/contexts/SettingsContext'
 import {
   calculateInvestmentDistribution,
   generateNormalDistributionData,
-  normalInverseCDF
+  normalInverseCDF,
+  normalCDFGeneral
 } from '@/utils/normalDistribution'
 
 // Chart.jsの登録
@@ -64,7 +65,7 @@ export default function DistributionPage (): React.JSX.Element {
     labels: distributionData.map(d => d.x.toFixed(0)),
     datasets: [
       {
-        label: '資産分布の確率密度',
+        label: '投資資産分布の確率密度',
         data: distributionData.map(d => d.y),
         borderColor: 'rgb(75, 192, 192)',
         backgroundColor: 'rgba(75, 192, 192, 0.2)',
@@ -84,17 +85,30 @@ export default function DistributionPage (): React.JSX.Element {
       },
       title: {
         display: true,
-        text: `${years}年後の資産分布（正規分布近似）`
+        text: `${years}年後の投資資産分布（正規分布近似）`
       },
       tooltip: {
         callbacks: {
           title: (context: any) => {
             const index = context[0].dataIndex
             const value = distributionData[index].x
-            return `資産額: ${value.toLocaleString('ja-JP', { maximumFractionDigits: 0 })} 円`
+            return `投資資産額: ${value.toLocaleString('ja-JP', { maximumFractionDigits: 0 })} 円`
           },
           label: (context: any) => {
-            return `確率密度: ${context.parsed.y.toExponential(3) as string}`
+            const index = context.dataIndex
+            const value = distributionData[index].x
+            // この金額以下になる確率を計算（CDF）
+            const cdfValue = normalCDFGeneral(value, mean, stdDev)
+            // この金額以下になる確率（パーセント）
+            const probabilityBelow = (cdfValue * 100).toFixed(1)
+            // 増減額と増減率を計算
+            const change = value - investmentAmount
+            const changeRate = ((change / investmentAmount) * 100).toFixed(1)
+            return [
+              `この金額以下になる確率: ${probabilityBelow}%`,
+              `増減額: ${change >= 0 ? '+' : ''}${change.toLocaleString('ja-JP', { maximumFractionDigits: 0 })} 円`,
+              `増減率: ${change >= 0 ? '+' : ''}${changeRate}%`
+            ]
           }
         }
       }
@@ -104,7 +118,7 @@ export default function DistributionPage (): React.JSX.Element {
         type: 'category' as const,
         title: {
           display: true,
-          text: '資産額 (円)'
+          text: '投資資産額 (円)'
         },
         ticks: {
           maxTicksLimit: 5,
@@ -207,7 +221,7 @@ export default function DistributionPage (): React.JSX.Element {
             <li>
               平均（期待値）: {mean.toLocaleString('ja-JP', { maximumFractionDigits: 0 })} 円{' '}
               <span style={{ color: profit > 0 ? 'green' : profit < 0 ? 'red' : 'black' }}>
-                ({profit >= 0 ? '+' : ''}{profit.toLocaleString('ja-JP', { maximumFractionDigits: 0 })} 円 / {((profit / investmentAmount) * 100).toFixed(1)}%)
+                ({profit >= 0 ? '+' : ''}{profit.toLocaleString('ja-JP', { maximumFractionDigits: 0 })} 円 / {profit >= 0 ? '+' : ''}{((profit / investmentAmount) * 100).toFixed(1)}%)
               </span>
             </li>
             <li>標準偏差: {stdDev.toLocaleString('ja-JP', { maximumFractionDigits: 0 })} 円</li>
