@@ -7,6 +7,7 @@ import { Button } from 'react-bootstrap'
 import { BsGearFill } from 'react-icons/bs'
 
 import pages from '@/pages'
+import setting from '@/setting'
 
 interface Props {
   currentPage: string | null
@@ -17,6 +18,13 @@ function Menu (props: Props): React.JSX.Element {
 
   const [menuOpen, setMenuOpen] = useState<boolean>(false)
 
+  // basePathを除去した現在のパスを取得
+  const normalizedCurrentPage = currentPage !== null && currentPage !== undefined
+    ? (setting.basePath !== null && setting.basePath !== undefined && setting.basePath !== ''
+        ? currentPage.replace(setting.basePath, '')
+        : currentPage)
+    : null
+
   return (
     <>
       <div id='Menu' className={menuOpen ? 'on' : ''}>
@@ -26,7 +34,7 @@ function Menu (props: Props): React.JSX.Element {
               key={index}
               href={page.path}
               className={`btn ${
-                currentPage === page.path
+                normalizedCurrentPage === page.path
                   ? 'btn-primary active'
                   : ''
               }`}
