@@ -1,6 +1,6 @@
 'use client'
 
-import React from 'react'
+import React, { useEffect } from 'react'
 import ReactModal from 'react-modal'
 
 import { IoIosCloseCircle } from 'react-icons/io'
@@ -47,6 +47,13 @@ export default function Modal (props: Props): React.JSX.Element {
     styles = {},
     children
   } = props
+
+  useEffect(() => {
+    // クライアントサイドでのみ実行
+    if (typeof window !== 'undefined') {
+      ReactModal.setAppElement('body')
+    }
+  }, [])
 
   return (
     <ReactModal

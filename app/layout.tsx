@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useState, Suspense } from 'react'
 import { usePathname } from 'next/navigation'
 
 import { ToastContainer } from 'react-toastify'
@@ -10,6 +10,7 @@ import '@/styles/menu.scss'
 
 import setting from '@/setting'
 import Menu from '@/components/Menu'
+import { SettingsProvider } from '@/contexts/SettingsContext'
 
 export default function RootLayout ({
   children
@@ -38,20 +39,24 @@ export default function RootLayout ({
         )}
       </head>
       <body>
-        <div id="Wrapper">
-          <main>{children}</main>
-          <Menu currentPage={currentPage} />
-          <ToastContainer />
-        </div>
-        <footer>
-          <a
-            href='https://github.com/osawa-koki'
-            target='_blank'
-            rel='noreferrer'
-          >
-            @osawa-koki
-          </a>
-        </footer>
+        <Suspense fallback={<div>Loading...</div>}>
+          <SettingsProvider>
+            <div id="Wrapper">
+              <main>{children}</main>
+              <Menu currentPage={currentPage} />
+              <ToastContainer />
+            </div>
+            <footer>
+              <a
+                href='https://github.com/osawa-koki'
+                target='_blank'
+                rel='noreferrer'
+              >
+                @osawa-koki
+              </a>
+            </footer>
+          </SettingsProvider>
+        </Suspense>
       </body>
     </html>
   )
