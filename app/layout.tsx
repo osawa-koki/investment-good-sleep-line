@@ -12,6 +12,12 @@ import setting from '@/setting'
 import Menu from '@/components/Menu'
 import { SettingsProvider } from '@/contexts/SettingsContext'
 
+const CHARSET = 'utf-8'
+const VIEWPORT_CONTENT = 'initial-scale=1.0, width=device-width'
+const FAVICON_TYPE = 'image/x-icon'
+const EMPTY_STRING = ''
+const KEYWORDS_MIN_LENGTH = 0
+
 export default function RootLayout ({
   children
 }: {
@@ -26,16 +32,20 @@ export default function RootLayout ({
     setCurrentPage(path)
   }, [pathname])
 
+  const basePath = setting.basePath ?? EMPTY_STRING
+  const faviconHref = `${basePath}/favicon.ico`
+  const keywordsMeta = setting.keywords.length > KEYWORDS_MIN_LENGTH ? setting.keywords.join(',') : EMPTY_STRING
+
   return (
     <html lang="ja">
       <head>
-        <meta charSet='utf-8' />
-        <link rel="shortcut icon" href={`${setting.basePath ?? ''}/favicon.ico`} type="image/x-icon" />
-        <meta name='viewport' content='initial-scale=1.0, width=device-width' />
+        <meta charSet={CHARSET} />
+        <link rel="shortcut icon" href={faviconHref} type={FAVICON_TYPE} />
+        <meta name='viewport' content={VIEWPORT_CONTENT} />
         <title>{setting.title}</title>
         <meta name='description' content={setting.description} />
-        {setting.keywords.length > 0 && (
-          <meta name='keywords' content={setting.keywords.join(',')} />
+        {setting.keywords.length > KEYWORDS_MIN_LENGTH && (
+          <meta name='keywords' content={keywordsMeta} />
         )}
       </head>
       <body>

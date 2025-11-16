@@ -7,6 +7,26 @@ import { toast } from 'react-toastify'
 import { useSettings, type InvestmentSettings, defaultSettings } from '@/contexts/SettingsContext'
 import Modal from '@/components/Modal'
 
+const PERCENTAGE_DIVISOR = 100
+const DECIMAL_PLACES = 10
+const MANYEN_MULTIPLIER = 10000
+const ZERO = 0
+const DECIMAL_ONE = 1
+
+// 資産クラスのリターンとリスク定数
+const DOMESTIC_STOCK_RETURN = 5.0
+const DOMESTIC_STOCK_RISK = 15.0
+const DEVELOPED_STOCK_RETURN = 7.0
+const DEVELOPED_STOCK_RISK = 17.0
+const EMERGING_STOCK_RETURN = 8.5
+const EMERGING_STOCK_RISK = 23.0
+const WORLD_STOCK_RETURN = 7.5
+const WORLD_STOCK_RISK = 18.0
+const DOMESTIC_BOND_RETURN = 1.0
+const DOMESTIC_BOND_RISK = 3.0
+const DEVELOPED_BOND_RETURN = 2.5
+const DEVELOPED_BOND_RISK = 5.0
+
 // 未保存の変更警告コンポーネント
 interface UnsavedChangesAlertProps {
   className?: string
@@ -31,12 +51,12 @@ interface AssetClass {
 }
 
 const assetClasses: AssetClass[] = [
-  { name: '国内株式', expectedReturn: 5.0, risk: 15.0 },
-  { name: '先進国株式', expectedReturn: 7.0, risk: 17.0 },
-  { name: '新興国株式', expectedReturn: 8.5, risk: 23.0 },
-  { name: '世界株式', expectedReturn: 7.5, risk: 18.0 },
-  { name: '国内債券', expectedReturn: 1.0, risk: 3.0 },
-  { name: '先進国債券', expectedReturn: 2.5, risk: 5.0 }
+  { name: '国内株式', expectedReturn: DOMESTIC_STOCK_RETURN, risk: DOMESTIC_STOCK_RISK },
+  { name: '先進国株式', expectedReturn: DEVELOPED_STOCK_RETURN, risk: DEVELOPED_STOCK_RISK },
+  { name: '新興国株式', expectedReturn: EMERGING_STOCK_RETURN, risk: EMERGING_STOCK_RISK },
+  { name: '世界株式', expectedReturn: WORLD_STOCK_RETURN, risk: WORLD_STOCK_RISK },
+  { name: '国内債券', expectedReturn: DOMESTIC_BOND_RETURN, risk: DOMESTIC_BOND_RISK },
+  { name: '先進国債券', expectedReturn: DEVELOPED_BOND_RETURN, risk: DEVELOPED_BOND_RISK }
 ]
 
 export default function SettingsPage (): React.JSX.Element {
@@ -52,15 +72,13 @@ export default function SettingsPage (): React.JSX.Element {
   const isInitialMount = React.useRef(true)
 
   // 未保存の変更があるかチェック
-  const hasUnsavedChanges = useMemo(() => {
-    return (
-      formData.totalAssets !== settings.totalAssets ||
-      formData.investmentRatio !== settings.investmentRatio ||
-      formData.probabilityThreshold !== settings.probabilityThreshold ||
-      formData.expectedReturn !== settings.expectedReturn ||
-      formData.risk !== settings.risk
-    )
-  }, [formData, settings])
+  const hasUnsavedChanges = useMemo(() => (
+    formData.totalAssets !== settings.totalAssets ||
+    formData.investmentRatio !== settings.investmentRatio ||
+    formData.probabilityThreshold !== settings.probabilityThreshold ||
+    formData.expectedReturn !== settings.expectedReturn ||
+    formData.risk !== settings.risk
+  ), [formData, settings])
 
   // 初回マウント時のみsettingsからフォームを初期化
   useEffect(() => {
@@ -70,12 +88,12 @@ export default function SettingsPage (): React.JSX.Element {
     }
   }, [settings])
 
-  const handleChange = (field: keyof InvestmentSettings) => (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleChange = (field: keyof InvestmentSettings) => (e: React.ChangeEvent<HTMLInputElement>): void => {
     const inputValue = e.target.value
 
     // 空文字列の場合は0として扱う
     if (inputValue === '') {
-      setFormData(prev => ({ ...prev, [field]: 0 }))
+      setFormData(prev => ({ ...prev, [field]: ZERO }))
       return
     }
 
@@ -89,22 +107,22 @@ export default function SettingsPage (): React.JSX.Element {
     e.preventDefault()
 
     // バリデーション
-    if (formData.totalAssets <= 0) {
+    if (formData.totalAssets <= ZERO) {
       toast.error('資産総額は0より大きい値を入力してください。')
       return
     }
 
-    if (formData.investmentRatio < 0 || formData.investmentRatio > 100) {
+    if (formData.investmentRatio < ZERO || formData.investmentRatio > PERCENTAGE_DIVISOR) {
       toast.error('投資比率は0〜100の範囲で入力してください。')
       return
     }
 
-    if (formData.probabilityThreshold < 0 || formData.probabilityThreshold > 100) {
+    if (formData.probabilityThreshold < ZERO || formData.probabilityThreshold > PERCENTAGE_DIVISOR) {
       toast.error('確率の閾値は0〜100の範囲で入力してください。')
       return
     }
 
-    if (formData.risk < 0) {
+    if (formData.risk < ZERO) {
       toast.error('リスクは0以上の値を入力してください。')
       return
     }
@@ -112,9 +130,9 @@ export default function SettingsPage (): React.JSX.Element {
     // 保存前に丸め処理を適用した値を作成
     const normalizedData: InvestmentSettings = {
       ...formData,
-      probabilityThreshold: Math.round(formData.probabilityThreshold * 10) / 10,
-      expectedReturn: Math.round(formData.expectedReturn * 10) / 10,
-      risk: Math.round(formData.risk * 10) / 10
+      probabilityThreshold: Math.round(formData.probabilityThreshold * DECIMAL_PLACES) / DECIMAL_PLACES,
+      expectedReturn: Math.round(formData.expectedReturn * DECIMAL_PLACES) / DECIMAL_PLACES,
+      risk: Math.round(formData.risk * DECIMAL_PLACES) / DECIMAL_PLACES
     }
 
     // 丸められた値でformDataも更新
@@ -150,8 +168,21 @@ export default function SettingsPage (): React.JSX.Element {
     toast.success(`${assetClass.name}のリターンとリスクを適用しました。`)
   }
 
+  const handleTotalAssetsChange = (e: React.ChangeEvent<HTMLInputElement>): void => {
+    const inputValue = e.target.value
+    if (inputValue === '') {
+      setFormData(prev => ({ ...prev, totalAssets: ZERO }))
+      return
+    }
+    const value = Number(inputValue)
+    if (!isNaN(value)) {
+      setFormData(prev => ({ ...prev, totalAssets: value * MANYEN_MULTIPLIER }))
+    }
+  }
+
   // 投資額を計算（リアルタイムで更新）
-  const investmentAmount = formData.totalAssets * formData.investmentRatio / 100
+  const investmentAmount = formData.totalAssets * formData.investmentRatio / PERCENTAGE_DIVISOR
+  const savedInvestmentAmount = settings.totalAssets * settings.investmentRatio / PERCENTAGE_DIVISOR
 
   return (
     <Container className="py-5">
@@ -168,18 +199,8 @@ export default function SettingsPage (): React.JSX.Element {
                   <Form.Label>資産総額 (万円)</Form.Label>
                   <Form.Control
                     type="number"
-                    value={formData.totalAssets / 10000}
-                    onChange={(e) => {
-                      const inputValue = e.target.value
-                      if (inputValue === '') {
-                        setFormData(prev => ({ ...prev, totalAssets: 0 }))
-                        return
-                      }
-                      const value = Number(inputValue)
-                      if (!isNaN(value)) {
-                        setFormData(prev => ({ ...prev, totalAssets: value * 10000 }))
-                      }
-                    }}
+                    value={formData.totalAssets / MANYEN_MULTIPLIER}
+                    onChange={handleTotalAssetsChange}
                     min={0}
                     step={1}
                     required
@@ -304,15 +325,13 @@ export default function SettingsPage (): React.JSX.Element {
                     {assetClasses.map((assetClass, index) => (
                       <tr key={index}>
                         <td>{assetClass.name}</td>
-                        <td>{assetClass.expectedReturn.toFixed(1)}%</td>
-                        <td>{assetClass.risk.toFixed(1)}%</td>
+                        <td>{assetClass.expectedReturn.toFixed(DECIMAL_ONE)}%</td>
+                        <td>{assetClass.risk.toFixed(DECIMAL_ONE)}%</td>
                         <td>
                           <Button
                             variant="outline-primary"
                             size="sm"
-                            onClick={() => {
-                              handleApplyAssetClass(assetClass)
-                            }}
+                            onClick={() => { handleApplyAssetClass(assetClass) }}
                           >
                             適用
                           </Button>
@@ -347,7 +366,7 @@ export default function SettingsPage (): React.JSX.Element {
           <ul className="mb-0">
             <li>資産総額: {settings.totalAssets.toLocaleString()} 円</li>
             <li>投資比率: {settings.investmentRatio}%</li>
-            <li>投資額: {(settings.totalAssets * settings.investmentRatio / 100).toLocaleString()} 円</li>
+            <li>投資額: {savedInvestmentAmount.toLocaleString()} 円</li>
             <li>確率閾値: {settings.probabilityThreshold}%</li>
             <li>期待リターン: {settings.expectedReturn}% / 年</li>
             <li>リスク: {settings.risk}% / 年</li>

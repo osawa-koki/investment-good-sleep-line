@@ -5,29 +5,42 @@ import ReactModal from 'react-modal'
 
 import { IoIosCloseCircle } from 'react-icons/io'
 
+const MODAL_TOP_POSITION = '50%'
+const MODAL_LEFT_POSITION = '50%'
+const MODAL_TRANSFORM = 'translate(-50%, -50%)'
+const MODAL_MIN_WIDTH = '40%'
+const MODAL_MAX_WIDTH = '80%'
+const MODAL_MIN_HEIGHT = '40%'
+const MODAL_MAX_HEIGHT = '80%'
+const OVERLAY_BACKGROUND = 'rgba(0, 0, 0, 0.5)'
+const OVERLAY_Z_INDEX = 1000
+const CLOSE_BUTTON_TOP = '10px'
+const CLOSE_BUTTON_RIGHT = '10px'
+const CLOSE_BUTTON_Z_INDEX = 1001
+
 const customStyles = {
   content: {
-    top: '50%',
-    left: '50%',
+    top: MODAL_TOP_POSITION,
+    left: MODAL_LEFT_POSITION,
     right: 'auto',
     bottom: 'auto',
-    transform: 'translate(-50%, -50%)',
-    minWidth: '40%',
-    maxWidth: '80%',
-    minHeight: '40%',
-    maxHeight: '80%'
+    transform: MODAL_TRANSFORM,
+    minWidth: MODAL_MIN_WIDTH,
+    maxWidth: MODAL_MAX_WIDTH,
+    minHeight: MODAL_MIN_HEIGHT,
+    maxHeight: MODAL_MAX_HEIGHT
   },
   overlay: {
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    zIndex: 1000
+    backgroundColor: OVERLAY_BACKGROUND,
+    zIndex: OVERLAY_Z_INDEX
   }
 }
 
 const closeButtonStyle: React.CSSProperties = {
   position: 'absolute',
-  top: '10px',
-  right: '10px',
-  zIndex: 1001,
+  top: CLOSE_BUTTON_TOP,
+  right: CLOSE_BUTTON_RIGHT,
+  zIndex: CLOSE_BUTTON_Z_INDEX,
   cursor: 'pointer'
 }
 
@@ -55,11 +68,13 @@ export default function Modal (props: Props): React.JSX.Element {
     }
   }, [])
 
+  const mergedStyles = { ...customStyles, ...styles }
+
   return (
     <ReactModal
       isOpen={modalIsOpen}
       onRequestClose={closeModal}
-      style={{ ...customStyles, ...styles }}
+      style={mergedStyles}
       contentLabel={contentLabel}
     >
       <>

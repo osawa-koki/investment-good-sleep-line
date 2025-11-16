@@ -1,13 +1,21 @@
 // 標準正規分布に関連する計算ユーティリティ
 
+// 定数定義
+const HALF = 0.5
+const ONE = 1
+const TWO = 2
+const ZERO = 0
+const PROBABILITY_THRESHOLD_MIN = 0.42
+const POINT_INCREMENT = 1
+
 /**
  * 誤差関数 (Error Function) の近似計算
  * 標準正規分布の累積分布関数を計算するために使用
  */
-function erf (x: number): number {
+function erf (inputX: number): number {
   // Abramowitz and Stegun approximation
-  const sign = x >= 0 ? 1 : -1
-  x = Math.abs(x)
+  const sign = inputX >= ZERO ? ONE : -ONE
+  const x = Math.abs(inputX)
 
   const a1 = 0.254829592
   const a2 = -0.284496736
@@ -16,8 +24,8 @@ function erf (x: number): number {
   const a5 = 1.061405429
   const p = 0.3275911
 
-  const t = 1.0 / (1.0 + p * x)
-  const y = 1.0 - (((((a5 * t + a4) * t) + a3) * t + a2) * t + a1) * t * Math.exp(-x * x)
+  const t = ONE / (ONE + p * x)
+  const y = ONE - (((((a5 * t + a4) * t) + a3) * t + a2) * t + a1) * t * Math.exp(-x * x)
 
   return sign * y
 }
@@ -28,7 +36,7 @@ function erf (x: number): number {
  * @returns P(X <= x) の確率
  */
 export function normalCDF (x: number): number {
-  return 0.5 * (1 + erf(x / Math.sqrt(2)))
+  return HALF * (ONE + erf(x / Math.sqrt(TWO)))
 }
 
 /**
@@ -37,7 +45,7 @@ export function normalCDF (x: number): number {
  * @returns 確率密度
  */
 export function normalPDF (x: number): number {
-  return Math.exp(-0.5 * x * x) / Math.sqrt(2 * Math.PI)
+  return Math.exp(-HALF * x * x) / Math.sqrt(TWO * Math.PI)
 }
 
 /**
@@ -71,7 +79,7 @@ export function normalCDFGeneral (x: number, mean: number, stdDev: number): numb
  * @returns x: P(X <= x) = p となる x
  */
 export function normalInverseCDF (p: number): number {
-  if (p <= 0 || p >= 1) {
+  if (p <= ZERO || p >= ONE) {
     throw new Error('Probability must be between 0 and 1')
   }
 
@@ -94,22 +102,22 @@ export function normalInverseCDF (p: number): number {
   const c7 = 0.0000002888167364
   const c8 = 0.0000003960315187
 
-  const y = p - 0.5
-  let r: number
-  let x: number
+  const y = p - HALF
+  let r = ZERO
+  let x = ZERO
 
-  if (Math.abs(y) < 0.42) {
+  if (Math.abs(y) < PROBABILITY_THRESHOLD_MIN) {
     r = y * y
     x = y * (((a3 * r + a2) * r + a1) * r + a0) /
-      ((((b3 * r + b2) * r + b1) * r + b0) * r + 1)
+      ((((b3 * r + b2) * r + b1) * r + b0) * r + ONE)
   } else {
     r = p
-    if (y > 0) {
-      r = 1 - p
+    if (y > ZERO) {
+      r = ONE - p
     }
     r = Math.log(-Math.log(r))
     x = c0 + r * (c1 + r * (c2 + r * (c3 + r * (c4 + r * (c5 + r * (c6 + r * (c7 + r * c8)))))))
-    if (y < 0) {
+    if (y < ZERO) {
       x = -x
     }
   }
@@ -133,15 +141,17 @@ export interface InvestmentDistributionParams {
  * @returns { mean, stdDev, logMean, logStdDev } - 対数正規分布のパラメータ
  */
 export function calculateInvestmentDistribution (params: InvestmentDistributionParams): { mean: number, stdDev: number, logMean: number, logStdDev: number } {
+  const PERCENTAGE_DIVISOR = 100
+
   const { initialAssets, expectedReturn, risk, years } = params
 
   // リターンとリスクを小数に変換
-  const muRate = expectedReturn / 100
-  const sigmaRate = risk / 100
+  const muRate = expectedReturn / PERCENTAGE_DIVISOR
+  const sigmaRate = risk / PERCENTAGE_DIVISOR
 
   // 対数正規分布のパラメータ（対数スケール）
   // ln(S_t) ~ N(ln(S_0) + (μ - σ²/2)×t, σ×√t)
-  const logMean = Math.log(initialAssets) + (muRate - sigmaRate * sigmaRate / 2) * years
+  const logMean = Math.log(initialAssets) + (muRate - sigmaRate * sigmaRate / TWO) * years
   const logStdDev = sigmaRate * Math.sqrt(years)
 
   // 実際の資産額の平均と標準偏差（対数正規分布）
@@ -150,7 +160,7 @@ export function calculateInvestmentDistribution (params: InvestmentDistributionP
 
   // Var[S_t] = (E[S_t])² × (exp(σ²×t) - 1)
   // StdDev[S_t] = E[S_t] × √(exp(σ²×t) - 1)
-  const stdDev = mean * Math.sqrt(Math.exp(sigmaRate * sigmaRate * years) - 1)
+  const stdDev = mean * Math.sqrt(Math.exp(sigmaRate * sigmaRate * years) - ONE)
 
   return { mean, stdDev, logMean, logStdDev }
 }
@@ -163,9 +173,11 @@ export function calculateInvestmentDistribution (params: InvestmentDistributionP
  * @returns 確率密度
  */
 export function lognormalPDF (x: number, logMean: number, logStdDev: number): number {
-  if (x <= 0) return 0
+  if (x <= ZERO) {
+    return ZERO
+  }
   const z = (Math.log(x) - logMean) / logStdDev
-  return Math.exp(-0.5 * z * z) / (x * logStdDev * Math.sqrt(2 * Math.PI))
+  return Math.exp(-HALF * z * z) / (x * logStdDev * Math.sqrt(TWO * Math.PI))
 }
 
 /**
@@ -176,7 +188,9 @@ export function lognormalPDF (x: number, logMean: number, logStdDev: number): nu
  * @returns P(X <= x) の確率
  */
 export function lognormalCDF (x: number, logMean: number, logStdDev: number): number {
-  if (x <= 0) return 0
+  if (x <= ZERO) {
+    return ZERO
+  }
   const z = (Math.log(x) - logMean) / logStdDev
   return normalCDF(z)
 }
@@ -189,24 +203,27 @@ export function lognormalCDF (x: number, logMean: number, logStdDev: number): nu
  * @param numStdDev - 対数平均から何標準偏差分を表示するか
  * @returns { x: number, y: number }[] - x座標とy座標の配列
  */
+const DEFAULT_NUM_POINTS = 300
+const DEFAULT_NUM_STD_DEV = 3
+
 export function generateLognormalDistributionData (
   logMean: number,
   logStdDev: number,
-  numPoints: number = 300,
-  numStdDev: number = 3
+  numPoints = DEFAULT_NUM_POINTS,
+  numStdDev = DEFAULT_NUM_STD_DEV
 ): Array<{ x: number, y: number }> {
   const data: Array<{ x: number, y: number }> = []
 
   // 対数スケールでの範囲を計算
-  const logXMin = Math.max(0, logMean - numStdDev * logStdDev)
+  const logXMin = Math.max(ZERO, logMean - numStdDev * logStdDev)
   const logXMax = logMean + numStdDev * logStdDev
 
   // 実際の資産額スケールでの範囲
   const xMin = Math.exp(logXMin)
   const xMax = Math.exp(logXMax)
-  const step = (xMax - xMin) / (numPoints - 1)
+  const step = (xMax - xMin) / (numPoints - ONE)
 
-  for (let i = 0; i < numPoints; i++) {
+  for (let i = ZERO; i < numPoints; i += POINT_INCREMENT) {
     const x = xMin + i * step
     const y = lognormalPDF(x, logMean, logStdDev)
     data.push({ x, y })
@@ -226,17 +243,17 @@ export function generateLognormalDistributionData (
 export function generateNormalDistributionData (
   mean: number,
   stdDev: number,
-  numPoints: number = 300,
-  numStdDev: number = 3
+  numPoints = DEFAULT_NUM_POINTS,
+  numStdDev = DEFAULT_NUM_STD_DEV
 ): Array<{ x: number, y: number }> {
   const data: Array<{ x: number, y: number }> = []
 
   // マイナスにならないように下限を0に設定
-  const xMin = Math.max(0, mean - numStdDev * stdDev)
+  const xMin = Math.max(ZERO, mean - numStdDev * stdDev)
   const xMax = mean + numStdDev * stdDev
-  const step = (xMax - xMin) / (numPoints - 1)
+  const step = (xMax - xMin) / (numPoints - ONE)
 
-  for (let i = 0; i < numPoints; i++) {
+  for (let i = ZERO; i < numPoints; i += POINT_INCREMENT) {
     const x = xMin + i * step
     const y = normalPDFGeneral(x, mean, stdDev)
     data.push({ x, y })

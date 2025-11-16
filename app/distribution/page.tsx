@@ -41,31 +41,97 @@ ChartJS.register(
   annotationPlugin
 )
 
+// 定数定義
+const DEFAULT_YEARS = 10
+const PERCENTAGE_DIVISOR = 100
+const DISTRIBUTION_POINTS = 300
+const DISTRIBUTION_STD_DEV = 3
+const BORDER_WIDTH_THIN = 2
+const DASH_SEGMENT_LENGTH = 5
+const DASH_PATTERN: [number, number] = [DASH_SEGMENT_LENGTH, DASH_SEGMENT_LENGTH]
+const CHART_TENSION = 0.4
+const POINT_RADIUS = 0
+const CONFIDENCE_INTERVAL_Z_SCORE = 1.96
+const MAX_TICKS_LIMIT = 5
+const PDF_MARGIN = 10
+const PDF_IMAGE_SCALE = 2
+const PDF_SPACING = 10
+const PDF_WIDTH_800 = '800px'
+const PDF_PADDING_40 = '40px'
+const PDF_LEFT_OFFSET = '-9999px'
+const CHART_HEIGHT = '400px'
+const SETTLEMENT_TIMEOUT = 0
+const DECIMAL_FRACTION_DIGITS = 0
+const DECIMAL_ONE_DIGIT = 1
+const DECIMAL_TWO_DIGITS = 2
+const ROUNDING_MULTIPLIER = 10
+const FIRST_ELEMENT_INDEX = 0
+const LAST_INDEX_OFFSET = 1
+const PROBABILITY_COMPLEMENT = 1
+
+interface TooltipContext {
+  dataIndex: number
+}
+
+// グラフの線の定義を生成する関数
+function createAnnotationLine (
+  index: number,
+  color: string,
+  borderWidth: number,
+  label: string,
+  displayLabel: boolean,
+  borderDash?: [number, number]
+): Record<string, unknown> {
+  return {
+    type: 'line' as const,
+    xMin: index,
+    xMax: index,
+    borderColor: color,
+    borderWidth,
+    ...(borderDash !== undefined ? { borderDash } : {}),
+    label: {
+      display: displayLabel,
+      content: label,
+      position: displayLabel ? ('start' as const) : undefined
+    }
+  }
+}
+
+// HTMLコンテンツを生成する関数
+function createPDFContentElement (content: string): HTMLDivElement {
+  const element = document.createElement('div')
+  element.style.width = PDF_WIDTH_800
+  element.style.padding = PDF_PADDING_40
+  element.style.backgroundColor = '#ffffff'
+  element.style.fontFamily = 'sans-serif'
+  element.style.position = 'absolute'
+  element.style.left = PDF_LEFT_OFFSET
+  element.innerHTML = content
+  return element
+}
+
+
 export default function DistributionPage (): React.JSX.Element {
   const { settings } = useSettings()
-  const [years, setYears] = useState(10)
+  const [years, setYears] = useState(DEFAULT_YEARS)
   const [tempProbabilityThreshold, setTempProbabilityThreshold] = useState<number | null>(null)
   const [tempInvestmentRatio, setTempInvestmentRatio] = useState<number | null>(null)
   const chartRef = useRef<HTMLDivElement>(null)
 
   // 投資額を計算（一時的な投資比率がある場合はそれを使用）
   const currentInvestmentRatio = tempInvestmentRatio ?? settings.investmentRatio
-  const investmentAmount = settings.totalAssets * currentInvestmentRatio / 100
+  const investmentAmount = settings.totalAssets * currentInvestmentRatio / PERCENTAGE_DIVISOR
 
   // 分布のパラメータを計算（対数正規分布）
-  const { mean, stdDev, logMean, logStdDev } = useMemo(() => {
-    return calculateInvestmentDistribution({
-      initialAssets: investmentAmount,
-      expectedReturn: settings.expectedReturn,
-      risk: settings.risk,
-      years
-    })
-  }, [investmentAmount, settings.expectedReturn, settings.risk, years])
+  const { mean, stdDev, logMean, logStdDev } = useMemo(() => calculateInvestmentDistribution({
+    initialAssets: investmentAmount,
+    expectedReturn: settings.expectedReturn,
+    risk: settings.risk,
+    years
+  }), [investmentAmount, settings.expectedReturn, settings.risk, years])
 
   // グラフ用のデータを生成（対数正規分布）
-  const distributionData = useMemo(() => {
-    return generateLognormalDistributionData(logMean, logStdDev, 300, 3)
-  }, [logMean, logStdDev])
+  const distributionData = useMemo(() => generateLognormalDistributionData(logMean, logStdDev, DISTRIBUTION_POINTS, DISTRIBUTION_STD_DEV), [logMean, logStdDev])
 
   // 損益分岐点（初期投資額）のインデックスを見つける
   const breakEvenIndex = distributionData.findIndex(d => d.x >= investmentAmount)
@@ -78,16 +144,16 @@ export default function DistributionPage (): React.JSX.Element {
   const minusOneSigmaIndex = distributionData.findIndex(d => d.x >= mean - stdDev)
 
   // ±2σのインデックスを見つける
-  const plusTwoSigmaIndex = distributionData.findIndex(d => d.x >= mean + 2 * stdDev)
-  const minusTwoSigmaIndex = distributionData.findIndex(d => d.x >= mean - 2 * stdDev)
+  const plusTwoSigmaIndex = distributionData.findIndex(d => d.x >= mean + BORDER_WIDTH_THIN * stdDev)
+  const minusTwoSigmaIndex = distributionData.findIndex(d => d.x >= mean - BORDER_WIDTH_THIN * stdDev)
 
   // ±3σのインデックスを見つける
-  const plusThreeSigmaIndex = distributionData.findIndex(d => d.x >= mean + 3 * stdDev)
-  const minusThreeSigmaIndex = distributionData.findIndex(d => d.x >= mean - 3 * stdDev)
+  const plusThreeSigmaIndex = distributionData.findIndex(d => d.x >= mean + DISTRIBUTION_STD_DEV * stdDev)
+  const minusThreeSigmaIndex = distributionData.findIndex(d => d.x >= mean - DISTRIBUTION_STD_DEV * stdDev)
 
   // Chart.js用のデータ形式に変換
   const chartData = {
-    labels: distributionData.map(d => d.x.toFixed(0)),
+    labels: distributionData.map(d => d.x.toFixed(DECIMAL_FRACTION_DIGITS)),
     datasets: [
       {
         label: '投資資産分布の確率密度',
@@ -95,8 +161,8 @@ export default function DistributionPage (): React.JSX.Element {
         borderColor: 'rgb(75, 192, 192)',
         backgroundColor: 'rgba(75, 192, 192, 0.2)',
         fill: true,
-        tension: 0.4,
-        pointRadius: 0
+        tension: CHART_TENSION,
+        pointRadius: POINT_RADIUS
       }
     ]
   }
@@ -114,119 +180,38 @@ export default function DistributionPage (): React.JSX.Element {
       },
       annotation: {
         annotations: {
-          breakEvenLine: {
-            type: 'line' as const,
-            xMin: breakEvenIndex,
-            xMax: breakEvenIndex,
-            borderColor: 'rgb(255, 0, 0)',
-            borderWidth: 2,
-            label: {
-              display: true,
-              content: '損益分岐点',
-              position: 'start' as const
-            }
-          },
-          expectedReturnLine: {
-            type: 'line' as const,
-            xMin: expectedReturnIndex,
-            xMax: expectedReturnIndex,
-            borderColor: 'rgb(0, 0, 255)',
-            borderWidth: 2,
-            label: {
-              display: true,
-              content: '期待リターン',
-              position: 'end' as const
-            }
-          },
-          plusOneSigmaLine: {
-            type: 'line' as const,
-            xMin: plusOneSigmaIndex,
-            xMax: plusOneSigmaIndex,
-            borderColor: 'rgb(0, 128, 0)',
-            borderWidth: 2,
-            borderDash: [5, 5],
-            label: {
-              display: false
-            }
-          },
-          minusOneSigmaLine: {
-            type: 'line' as const,
-            xMin: minusOneSigmaIndex,
-            xMax: minusOneSigmaIndex,
-            borderColor: 'rgb(0, 128, 0)',
-            borderWidth: 2,
-            borderDash: [5, 5],
-            label: {
-              display: false
-            }
-          },
-          plusTwoSigmaLine: {
-            type: 'line' as const,
-            xMin: plusTwoSigmaIndex,
-            xMax: plusTwoSigmaIndex,
-            borderColor: 'rgb(0, 200, 0)',
-            borderWidth: 2,
-            borderDash: [5, 5],
-            label: {
-              display: false
-            }
-          },
-          minusTwoSigmaLine: {
-            type: 'line' as const,
-            xMin: minusTwoSigmaIndex,
-            xMax: minusTwoSigmaIndex,
-            borderColor: 'rgb(0, 200, 0)',
-            borderWidth: 2,
-            borderDash: [5, 5],
-            label: {
-              display: false
-            }
-          },
-          plusThreeSigmaLine: {
-            type: 'line' as const,
-            xMin: plusThreeSigmaIndex,
-            xMax: plusThreeSigmaIndex,
-            borderColor: 'rgb(255, 255, 0)',
-            borderWidth: 2,
-            borderDash: [5, 5],
-            label: {
-              display: false
-            }
-          },
-          minusThreeSigmaLine: {
-            type: 'line' as const,
-            xMin: minusThreeSigmaIndex,
-            xMax: minusThreeSigmaIndex,
-            borderColor: 'rgb(255, 255, 0)',
-            borderWidth: 2,
-            borderDash: [5, 5],
-            label: {
-              display: false
-            }
-          }
+          breakEvenLine: createAnnotationLine(breakEvenIndex, 'rgb(255, 0, 0)', BORDER_WIDTH_THIN, '損益分岐点', true),
+          expectedReturnLine: createAnnotationLine(expectedReturnIndex, 'rgb(0, 0, 255)', BORDER_WIDTH_THIN, '期待リターン', true),
+          plusOneSigmaLine: createAnnotationLine(plusOneSigmaIndex, 'rgb(0, 128, 0)', BORDER_WIDTH_THIN, '', false, DASH_PATTERN),
+          minusOneSigmaLine: createAnnotationLine(minusOneSigmaIndex, 'rgb(0, 128, 0)', BORDER_WIDTH_THIN, '', false, DASH_PATTERN),
+          plusTwoSigmaLine: createAnnotationLine(plusTwoSigmaIndex, 'rgb(0, 200, 0)', BORDER_WIDTH_THIN, '', false, DASH_PATTERN),
+          minusTwoSigmaLine: createAnnotationLine(minusTwoSigmaIndex, 'rgb(0, 200, 0)', BORDER_WIDTH_THIN, '', false, DASH_PATTERN),
+          plusThreeSigmaLine: createAnnotationLine(plusThreeSigmaIndex, 'rgb(255, 255, 0)', BORDER_WIDTH_THIN, '', false, DASH_PATTERN),
+          minusThreeSigmaLine: createAnnotationLine(minusThreeSigmaIndex, 'rgb(255, 255, 0)', BORDER_WIDTH_THIN, '', false, DASH_PATTERN)
         }
       },
       tooltip: {
         callbacks: {
-          title: (context: any) => {
-            const index = context[0].dataIndex
+          title: (context: TooltipContext[]) => {
+            const firstContext = context[FIRST_ELEMENT_INDEX]
+            const { dataIndex: index } = firstContext
             const value = distributionData[index].x
-            return `投資資産額: ${value.toLocaleString('ja-JP', { maximumFractionDigits: 0 })} 円`
+            return `投資資産額: ${value.toLocaleString('ja-JP', { maximumFractionDigits: DECIMAL_FRACTION_DIGITS })} 円`
           },
-          label: (context: any) => {
-            const index = context.dataIndex
+          label: (context: TooltipContext) => {
+            const { dataIndex: index } = context
             const value = distributionData[index].x
             // この金額以下になる確率を計算（対数正規分布のCDF）
             const cdfValue = lognormalCDF(value, logMean, logStdDev)
             // この金額以下になる確率（パーセント）
-            const probabilityBelow = (cdfValue * 100).toFixed(1)
+            const probabilityBelow = (cdfValue * PERCENTAGE_DIVISOR).toFixed(DECIMAL_ONE_DIGIT)
             // 増減額と増減率を計算
             const change = value - investmentAmount
-            const changeRate = ((change / investmentAmount) * 100).toFixed(1)
+            const changeRate = ((change / investmentAmount) * PERCENTAGE_DIVISOR).toFixed(DECIMAL_ONE_DIGIT)
             return [
               `この金額以下になる確率: ${probabilityBelow}%`,
-              `増減額: ${change >= 0 ? '+' : ''}${change.toLocaleString('ja-JP', { maximumFractionDigits: 0 })} 円`,
-              `増減率: ${change >= 0 ? '+' : ''}${changeRate}%`
+              `増減額: ${change >= SETTLEMENT_TIMEOUT ? '+' : ''}${change.toLocaleString('ja-JP', { maximumFractionDigits: DECIMAL_FRACTION_DIGITS })} 円`,
+              `増減率: ${change >= SETTLEMENT_TIMEOUT ? '+' : ''}${changeRate}%`
             ]
           }
         }
@@ -240,13 +225,14 @@ export default function DistributionPage (): React.JSX.Element {
           text: '投資資産額 (円)'
         },
         ticks: {
-          maxTicksLimit: 5,
-          callback: function (value: any, index: number) {
+          maxTicksLimit: MAX_TICKS_LIMIT,
+          callback: function (_value: unknown, index: number) {
             // 5個程度のラベルのみ表示
             const totalTicks = distributionData.length
-            if (index % Math.floor(totalTicks / 5) === 0 || index === totalTicks - 1) {
+            const lastIndex = totalTicks - LAST_INDEX_OFFSET
+            if (index % Math.floor(totalTicks / MAX_TICKS_LIMIT) === SETTLEMENT_TIMEOUT || index === lastIndex) {
               const x = distributionData[index].x
-              return x.toLocaleString('ja-JP', { maximumFractionDigits: 0 })
+              return x.toLocaleString('ja-JP', { maximumFractionDigits: DECIMAL_FRACTION_DIGITS })
             }
             return ''
           }
@@ -258,8 +244,8 @@ export default function DistributionPage (): React.JSX.Element {
           text: '確率密度'
         },
         ticks: {
-          callback: function (value: any) {
-            return value.toExponential(2)
+          callback: function (value: unknown) {
+            return (value as number).toExponential(DECIMAL_TWO_DIGITS)
           }
         }
       }
@@ -268,8 +254,8 @@ export default function DistributionPage (): React.JSX.Element {
 
   // 95%信頼区間を計算（対数正規分布）
   // 対数正規分布の95%信頼区間: exp(logMean ± 1.96 × logStdDev)
-  const lowerBound = Math.exp(logMean - 1.96 * logStdDev)
-  const upperBound = Math.exp(logMean + 1.96 * logStdDev)
+  const lowerBound = Math.exp(logMean - CONFIDENCE_INTERVAL_Z_SCORE * logStdDev)
+  const upperBound = Math.exp(logMean + CONFIDENCE_INTERVAL_Z_SCORE * logStdDev)
 
   // 利益額を計算
   const profit = mean - investmentAmount
@@ -278,9 +264,9 @@ export default function DistributionPage (): React.JSX.Element {
   // 確率閾値が90%の場合、下位10%に相当する値を求める
   // tempProbabilityThresholdがnullでない場合はそれを使用、nullの場合はsettingsの値を使用
   const currentProbabilityThreshold = tempProbabilityThreshold ?? settings.probabilityThreshold
-  const probabilityDecimal = currentProbabilityThreshold / 100
+  const probabilityDecimal = currentProbabilityThreshold / PERCENTAGE_DIVISOR
   // 下位(100-閾値)%のz値を求める
-  const zScore = normalInverseCDF(1 - probabilityDecimal)
+  const zScore = normalInverseCDF(PROBABILITY_COMPLEMENT - probabilityDecimal)
   // 対数正規分布の場合: exp(logMean + zScore × logStdDev)
   const worstCaseAssets = Math.exp(logMean + zScore * logStdDev)
   const worstCaseLoss = worstCaseAssets - investmentAmount
@@ -297,17 +283,8 @@ export default function DistributionPage (): React.JSX.Element {
       toast.info('PDFを生成しています...')
 
       // PDFに含めるHTML要素を作成
-      const pdfContent = document.createElement('div')
-      pdfContent.style.width = '800px'
-      pdfContent.style.padding = '40px'
-      pdfContent.style.backgroundColor = '#ffffff'
-      pdfContent.style.fontFamily = 'sans-serif'
-      pdfContent.style.position = 'absolute'
-      pdfContent.style.left = '-9999px'
-
-      // タイトルと日付
       const today = new Date().toLocaleDateString('ja-JP')
-      pdfContent.innerHTML = `
+      const pdfContent = createPDFContentElement(`
         <div style="text-align: center; margin-bottom: 30px;">
           <h1 style="font-size: 24px; margin-bottom: 10px;">投資分析レポート</h1>
           <p style="font-size: 14px; color: #666;">生成日: ${today}</p>
@@ -319,42 +296,34 @@ export default function DistributionPage (): React.JSX.Element {
           <p style="font-size: 14px; margin-bottom: 10px;">
             通常起こり得る確率範囲（${currentProbabilityThreshold}%）での最悪のケースで、資産全体が
             <strong>${totalAssetsWorstCase.toLocaleString()} 円</strong>
-            （<strong>${totalAssetsChange >= 0 ? '+' : ''}${totalAssetsChange.toLocaleString()} 円</strong> /
-            <strong>${totalAssetsChange >= 0 ? '+' : ''}${((totalAssetsChange / settings.totalAssets) * 100).toFixed(1)}%</strong>）
-            にまで${totalAssetsChange >= 0 ? '増加' : '減少'}する可能性があります。
+            （<strong>${totalAssetsChange >= SETTLEMENT_TIMEOUT ? '+' : ''}${totalAssetsChange.toLocaleString()} 円</strong> /
+            <strong>${totalAssetsChange >= SETTLEMENT_TIMEOUT ? '+' : ''}${((totalAssetsChange / settings.totalAssets) * PERCENTAGE_DIVISOR).toFixed(DECIMAL_ONE_DIGIT)}%</strong>）
+            にまで${totalAssetsChange >= SETTLEMENT_TIMEOUT ? '増加' : '減少'}する可能性があります。
           </p>
           <p style="font-size: 14px; margin-bottom: 5px;"><strong>安眠できますか？</strong></p>
           <p style="font-size: 14px; margin: 0;">できない場合は、投資比率を下げてください。</p>
         </div>
-      `
+      `)
 
       document.body.appendChild(pdfContent)
 
       // 安眠チェック部分をキャプチャ
       const headerCanvas = await html2canvas(pdfContent, {
-        scale: 2,
+        scale: PDF_IMAGE_SCALE,
         backgroundColor: '#ffffff'
       })
 
       // グラフをキャプチャ
       let chartCanvas: HTMLCanvasElement | null = null
-      if (chartRef.current != null) {
+      if (chartRef.current !== null) {
         chartCanvas = await html2canvas(chartRef.current, {
-          scale: 2,
+          scale: PDF_IMAGE_SCALE,
           backgroundColor: '#ffffff'
         })
       }
 
       // グラフの見方のHTML
-      const chartGuideDiv = document.createElement('div')
-      chartGuideDiv.style.width = '800px'
-      chartGuideDiv.style.padding = '40px'
-      chartGuideDiv.style.backgroundColor = '#ffffff'
-      chartGuideDiv.style.fontFamily = 'sans-serif'
-      chartGuideDiv.style.position = 'absolute'
-      chartGuideDiv.style.left = '-9999px'
-
-      chartGuideDiv.innerHTML = `
+      const chartGuideDiv = createPDFContentElement(`
         <div style="margin-top: 20px;">
           <h2 style="font-size: 18px; margin-bottom: 15px; border-bottom: 2px solid #333; padding-bottom: 5px;">グラフの見方</h2>
           <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
@@ -413,25 +382,17 @@ export default function DistributionPage (): React.JSX.Element {
             </tbody>
           </table>
         </div>
-      `
+      `)
 
       document.body.appendChild(chartGuideDiv)
 
       const chartGuideCanvas = await html2canvas(chartGuideDiv, {
-        scale: 2,
+        scale: PDF_IMAGE_SCALE,
         backgroundColor: '#ffffff'
       })
 
       // 前提条件のHTML
-      const conditionsDiv = document.createElement('div')
-      conditionsDiv.style.width = '800px'
-      conditionsDiv.style.padding = '40px'
-      conditionsDiv.style.backgroundColor = '#ffffff'
-      conditionsDiv.style.fontFamily = 'sans-serif'
-      conditionsDiv.style.position = 'absolute'
-      conditionsDiv.style.left = '-9999px'
-
-      conditionsDiv.innerHTML = `
+      const conditionsDiv = createPDFContentElement(`
         <div style="margin-top: 20px;">
           <h2 style="font-size: 18px; margin-bottom: 15px; border-bottom: 2px solid #333; padding-bottom: 5px;">利用した前提条件</h2>
           <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
@@ -465,7 +426,7 @@ export default function DistributionPage (): React.JSX.Element {
             </tr>
             <tr style="border-bottom: 1px solid #ddd;">
               <td style="padding: 10px; font-weight: bold;">期待値（平均）</td>
-              <td style="padding: 10px;">${Math.floor(mean).toLocaleString()} 円 (${profit >= 0 ? '+' : ''}${Math.floor(profit).toLocaleString()} 円 / ${profit >= 0 ? '+' : ''}${((profit / investmentAmount) * 100).toFixed(1)}%)</td>
+              <td style="padding: 10px;">${Math.floor(mean).toLocaleString()} 円 (${profit >= SETTLEMENT_TIMEOUT ? '+' : ''}${Math.floor(profit).toLocaleString()} 円 / ${profit >= SETTLEMENT_TIMEOUT ? '+' : ''}${((profit / investmentAmount) * PERCENTAGE_DIVISOR).toFixed(DECIMAL_ONE_DIGIT)}%)</td>
             </tr>
             <tr style="border-bottom: 1px solid #ddd;">
               <td style="padding: 10px; font-weight: bold;">標準偏差</td>
@@ -477,12 +438,12 @@ export default function DistributionPage (): React.JSX.Element {
             </tr>
           </table>
         </div>
-      `
+      `)
 
       document.body.appendChild(conditionsDiv)
 
       const conditionsCanvas = await html2canvas(conditionsDiv, {
-        scale: 2,
+        scale: PDF_IMAGE_SCALE,
         backgroundColor: '#ffffff'
       })
 
@@ -492,71 +453,93 @@ export default function DistributionPage (): React.JSX.Element {
       document.body.removeChild(conditionsDiv)
 
       // PDFを作成
-      // eslint-disable-next-line new-cap
+      // eslint-disable-next-line new-cap -- jsPDF requires new operator but starts with lowercase
       const pdf = new jsPDF('p', 'mm', 'a4')
       const pageWidth = pdf.internal.pageSize.getWidth()
       const pageHeight = pdf.internal.pageSize.getHeight()
-      const margin = 10
-      let yPosition = margin
+      let yPosition = PDF_MARGIN
 
       // 安眠チェック部分を追加
       const headerImgData = headerCanvas.toDataURL('image/png')
-      const headerImgWidth = pageWidth - 2 * margin
+      const headerImgWidth = pageWidth - BORDER_WIDTH_THIN * PDF_MARGIN
       const headerImgHeight = (headerCanvas.height * headerImgWidth) / headerCanvas.width
-      pdf.addImage(headerImgData, 'PNG', margin, yPosition, headerImgWidth, headerImgHeight)
-      yPosition += headerImgHeight + 10
+      pdf.addImage(headerImgData, 'PNG', PDF_MARGIN, yPosition, headerImgWidth, headerImgHeight)
+      yPosition += headerImgHeight + PDF_SPACING
 
       // グラフを追加
-      if (chartCanvas != null) {
+      if (chartCanvas !== null) {
         const chartImgData = chartCanvas.toDataURL('image/png')
-        const chartImgWidth = pageWidth - 2 * margin
+        const chartImgWidth = pageWidth - BORDER_WIDTH_THIN * PDF_MARGIN
         const chartImgHeight = (chartCanvas.height * chartImgWidth) / chartCanvas.width
 
         // ページに収まらない場合は新しいページに
-        if (yPosition + chartImgHeight > pageHeight - margin) {
+        if (yPosition + chartImgHeight > pageHeight - PDF_MARGIN) {
           pdf.addPage()
-          yPosition = margin
+          yPosition = PDF_MARGIN
         }
 
-        pdf.addImage(chartImgData, 'PNG', margin, yPosition, chartImgWidth, chartImgHeight)
-        yPosition += chartImgHeight + 10
+        pdf.addImage(chartImgData, 'PNG', PDF_MARGIN, yPosition, chartImgWidth, chartImgHeight)
+        yPosition += chartImgHeight + PDF_SPACING
       }
 
       // グラフの見方を追加
       const chartGuideImgData = chartGuideCanvas.toDataURL('image/png')
-      const chartGuideImgWidth = pageWidth - 2 * margin
+      const chartGuideImgWidth = pageWidth - BORDER_WIDTH_THIN * PDF_MARGIN
       const chartGuideImgHeight = (chartGuideCanvas.height * chartGuideImgWidth) / chartGuideCanvas.width
 
       // ページに収まらない場合は新しいページに
-      if (yPosition + chartGuideImgHeight > pageHeight - margin) {
+      if (yPosition + chartGuideImgHeight > pageHeight - PDF_MARGIN) {
         pdf.addPage()
-        yPosition = margin
+        yPosition = PDF_MARGIN
       }
 
-      pdf.addImage(chartGuideImgData, 'PNG', margin, yPosition, chartGuideImgWidth, chartGuideImgHeight)
-      yPosition += chartGuideImgHeight + 10
+      pdf.addImage(chartGuideImgData, 'PNG', PDF_MARGIN, yPosition, chartGuideImgWidth, chartGuideImgHeight)
+      yPosition += chartGuideImgHeight + PDF_SPACING
 
       // 前提条件を追加
       const conditionsImgData = conditionsCanvas.toDataURL('image/png')
-      const conditionsImgWidth = pageWidth - 2 * margin
+      const conditionsImgWidth = pageWidth - BORDER_WIDTH_THIN * PDF_MARGIN
       const conditionsImgHeight = (conditionsCanvas.height * conditionsImgWidth) / conditionsCanvas.width
 
       // ページに収まらない場合は新しいページに
-      if (yPosition + conditionsImgHeight > pageHeight - margin) {
+      if (yPosition + conditionsImgHeight > pageHeight - PDF_MARGIN) {
         pdf.addPage()
-        yPosition = margin
+        yPosition = PDF_MARGIN
       }
 
-      pdf.addImage(conditionsImgData, 'PNG', margin, yPosition, conditionsImgWidth, conditionsImgHeight)
+      pdf.addImage(conditionsImgData, 'PNG', PDF_MARGIN, yPosition, conditionsImgWidth, conditionsImgHeight)
 
       // PDFを保存
-      pdf.save(`投資分析レポート_${today.replace(/\//g, '-')}.pdf`)
+      const sanitizedDate = today.replace(/\//g, '-')
+      pdf.save(`投資分析レポート_${sanitizedDate}.pdf`)
       toast.success('PDFをダウンロードしました。')
     } catch (error) {
       console.error('PDF generation error:', error)
       toast.error('PDFの生成に失敗しました。')
     }
   }
+
+  const handleYearsChange = (e: React.ChangeEvent<HTMLInputElement>): void => {
+    setYears(parseInt(e.target.value, ROUNDING_MULTIPLIER))
+  }
+
+  const handleProbabilityThresholdChange = (e: React.ChangeEvent<HTMLInputElement>): void => {
+    setTempProbabilityThreshold(parseFloat(e.target.value))
+  }
+
+  const handleInvestmentRatioChange = (e: React.ChangeEvent<HTMLInputElement>): void => {
+    setTempInvestmentRatio(parseFloat(e.target.value))
+  }
+
+  const formatCurrency = (value: number): string => value.toLocaleString('ja-JP', { maximumFractionDigits: DECIMAL_FRACTION_DIGITS })
+
+  const formatPercentage = (value: number, base: number): string => ((value / base) * PERCENTAGE_DIVISOR).toFixed(DECIMAL_ONE_DIGIT)
+
+  const getChangeSign = (value: number): string => (value >= SETTLEMENT_TIMEOUT ? '+' : '')
+
+  const getColorStyle = (value: number): { color: string } => ({
+    color: value > SETTLEMENT_TIMEOUT ? 'green' : value < SETTLEMENT_TIMEOUT ? 'red' : 'black'
+  })
 
   return (
     <Container className="py-5">
@@ -573,7 +556,7 @@ export default function DistributionPage (): React.JSX.Element {
           <Row>
             <Col md={6}>
               <ul className="mb-0">
-                <li>投資額: {investmentAmount.toLocaleString()} 円</li>
+                <li>投資額: {formatCurrency(investmentAmount)} 円</li>
                 <li>期待リターン: {settings.expectedReturn}% / 年</li>
                 <li>リスク: {settings.risk}% / 年</li>
               </ul>
@@ -591,7 +574,7 @@ export default function DistributionPage (): React.JSX.Element {
               max={50}
               step={1}
               value={years}
-              onChange={(e) => { setYears(parseInt(e.target.value)) }}
+              onChange={handleYearsChange}
             />
             <Form.Text className="text-muted">
               スライダーを動かして投資期間を変更できます。
@@ -602,7 +585,7 @@ export default function DistributionPage (): React.JSX.Element {
 
       <Card className="mb-4">
         <Card.Body>
-          <div ref={chartRef} style={{ height: '400px' }}>
+          <div ref={chartRef} style={{ height: CHART_HEIGHT }}>
             <Line data={chartData} options={chartOptions} />
           </div>
         </Card.Body>
@@ -702,13 +685,13 @@ export default function DistributionPage (): React.JSX.Element {
           <h5>統計情報（対数正規分布）</h5>
           <ul className="mb-0">
             <li>
-              <Link href="/words?q=mean" style={{ textDecoration: 'none' }}>平均（期待値）</Link>: {mean.toLocaleString('ja-JP', { maximumFractionDigits: 0 })} 円{' '}
-              <span style={{ color: profit > 0 ? 'green' : profit < 0 ? 'red' : 'black' }}>
-                ({profit >= 0 ? '+' : ''}{profit.toLocaleString('ja-JP', { maximumFractionDigits: 0 })} 円 / {profit >= 0 ? '+' : ''}{((profit / investmentAmount) * 100).toFixed(1)}%)
+              <Link href="/words?q=mean" style={{ textDecoration: 'none' }}>平均（期待値）</Link>: {formatCurrency(mean)} 円{' '}
+              <span style={getColorStyle(profit)}>
+                ({getChangeSign(profit)}{formatCurrency(profit)} 円 / {getChangeSign(profit)}{formatPercentage(profit, investmentAmount)}%)
               </span>
             </li>
-            <li><Link href="/words?q=stddev" style={{ textDecoration: 'none' }}>標準偏差</Link>: {stdDev.toLocaleString('ja-JP', { maximumFractionDigits: 0 })} 円</li>
-            <li><Link href="/words?q=confidence-interval" style={{ textDecoration: 'none' }}>95%信頼区間</Link>: {lowerBound.toLocaleString('ja-JP', { maximumFractionDigits: 0 })} 円 〜 {upperBound.toLocaleString('ja-JP', { maximumFractionDigits: 0 })} 円</li>
+            <li><Link href="/words?q=stddev" style={{ textDecoration: 'none' }}>標準偏差</Link>: {formatCurrency(stdDev)} 円</li>
+            <li><Link href="/words?q=confidence-interval" style={{ textDecoration: 'none' }}>95%信頼区間</Link>: {formatCurrency(lowerBound)} 円 〜 {formatCurrency(upperBound)} 円</li>
           </ul>
           <Form.Text className="text-muted d-block mt-2">
             ※ 対数正規分布でモデル化しています。資産額は常に0以上となり、上方向の可能性が大きくなります。95%の確率で、{years}年後の資産はこの範囲内に収まります。
@@ -726,7 +709,7 @@ export default function DistributionPage (): React.JSX.Element {
               max={99.9}
               step={0.1}
               value={currentProbabilityThreshold}
-              onChange={(e) => { setTempProbabilityThreshold(parseFloat(e.target.value)) }}
+              onChange={handleProbabilityThresholdChange}
             />
             <Form.Text className="text-muted">
               スライダーを動かして確率閾値を一時的に変更できます。この変更はこのページでのみ有効です。
@@ -739,14 +722,14 @@ export default function DistributionPage (): React.JSX.Element {
               max={100}
               step={1}
               value={currentInvestmentRatio}
-              onChange={(e) => { setTempInvestmentRatio(parseFloat(e.target.value)) }}
+              onChange={handleInvestmentRatioChange}
             />
             <Form.Text className="text-muted">
               スライダーを動かして投資比率を一時的に変更できます。この変更はこのページでのみ有効です。
             </Form.Text>
           </Form.Group>
           <p className="mb-3">
-            投資比率 {currentInvestmentRatio}%、投資額 {investmentAmount.toLocaleString('ja-JP', { maximumFractionDigits: 0 })} 円の場合、{currentProbabilityThreshold}%の確率内での最悪ケースは以下の通りです。
+            投資比率 {currentInvestmentRatio}%、投資額 {formatCurrency(investmentAmount)} 円の場合、{currentProbabilityThreshold}%の確率内での最悪ケースは以下の通りです。
           </p>
           <Table striped bordered>
             <thead>
@@ -760,37 +743,37 @@ export default function DistributionPage (): React.JSX.Element {
             <tbody>
               <tr>
                 <td><strong>投資部分</strong></td>
-                <td>{worstCaseAssets.toLocaleString('ja-JP', { maximumFractionDigits: 0 })} 円</td>
-                <td style={{ color: worstCaseLoss > 0 ? 'green' : worstCaseLoss < 0 ? 'red' : 'black' }}>
-                  {worstCaseLoss >= 0 ? '+' : ''}{worstCaseLoss.toLocaleString('ja-JP', { maximumFractionDigits: 0 })} 円
+                <td>{formatCurrency(worstCaseAssets)} 円</td>
+                <td style={getColorStyle(worstCaseLoss)}>
+                  {getChangeSign(worstCaseLoss)}{formatCurrency(worstCaseLoss)} 円
                 </td>
-                <td style={{ color: worstCaseLoss > 0 ? 'green' : worstCaseLoss < 0 ? 'red' : 'black' }}>
-                  {((worstCaseLoss / investmentAmount) * 100).toFixed(1)}%
+                <td style={getColorStyle(worstCaseLoss)}>
+                  {formatPercentage(worstCaseLoss, investmentAmount)}%
                 </td>
               </tr>
               <tr>
                 <td><strong>資産全体</strong></td>
-                <td>{totalAssetsWorstCase.toLocaleString('ja-JP', { maximumFractionDigits: 0 })} 円</td>
-                <td style={{ color: totalAssetsChange > 0 ? 'green' : totalAssetsChange < 0 ? 'red' : 'black' }}>
-                  {totalAssetsChange >= 0 ? '+' : ''}{totalAssetsChange.toLocaleString('ja-JP', { maximumFractionDigits: 0 })} 円
+                <td>{formatCurrency(totalAssetsWorstCase)} 円</td>
+                <td style={getColorStyle(totalAssetsChange)}>
+                  {getChangeSign(totalAssetsChange)}{formatCurrency(totalAssetsChange)} 円
                 </td>
-                <td style={{ color: totalAssetsChange > 0 ? 'green' : totalAssetsChange < 0 ? 'red' : 'black' }}>
-                  {((totalAssetsChange / settings.totalAssets) * 100).toFixed(1)}%
+                <td style={getColorStyle(totalAssetsChange)}>
+                  {formatPercentage(totalAssetsChange, settings.totalAssets)}%
                 </td>
               </tr>
             </tbody>
           </Table>
           <Form.Text className="text-muted d-block mt-2">
-            ※ 下位{(100 - currentProbabilityThreshold).toFixed(1)}%の確率でこの値を下回ります。<br />
-            ※ 資産全体 = 投資部分（{worstCaseAssets.toLocaleString('ja-JP', { maximumFractionDigits: 0 })} 円）+ 非投資部分（{nonInvestmentAssets.toLocaleString('ja-JP', { maximumFractionDigits: 0 })} 円）
+            ※ 下位{(PERCENTAGE_DIVISOR - currentProbabilityThreshold).toFixed(DECIMAL_ONE_DIGIT)}%の確率でこの値を下回ります。<br />
+            ※ 資産全体 = 投資部分（{formatCurrency(worstCaseAssets)} 円）+ 非投資部分（{formatCurrency(nonInvestmentAssets)} 円）
           </Form.Text>
           <div className="alert alert-info mt-3" role="alert">
             <strong>💤 安眠チェック</strong><br />
             通常起こり得る確率範囲（{currentProbabilityThreshold}%）での最悪のケースで、資産全体が{' '}
-            <strong>{totalAssetsWorstCase.toLocaleString('ja-JP', { maximumFractionDigits: 0 })} 円</strong>
-            （<strong>{totalAssetsChange >= 0 ? '+' : ''}{totalAssetsChange.toLocaleString('ja-JP', { maximumFractionDigits: 0 })} 円</strong> /
-            <strong>{totalAssetsChange >= 0 ? '+' : ''}{((totalAssetsChange / settings.totalAssets) * 100).toFixed(1)}%</strong>）
-            にまで{totalAssetsChange >= 0 ? '増加' : '減少'}する可能性があります。
+            <strong>{formatCurrency(totalAssetsWorstCase)} 円</strong>
+            （<strong>{getChangeSign(totalAssetsChange)}{formatCurrency(totalAssetsChange)} 円</strong> /
+            <strong>{getChangeSign(totalAssetsChange)}{formatPercentage(totalAssetsChange, settings.totalAssets)}%</strong>）
+            にまで{totalAssetsChange >= SETTLEMENT_TIMEOUT ? '増加' : '減少'}する可能性があります。
             <br />
             <br />
             <strong>安眠できますか？</strong><br />

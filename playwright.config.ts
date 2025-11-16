@@ -6,6 +6,11 @@ import { defineConfig, devices } from '@playwright/test'
  */
 // require('dotenv').config();
 
+const CI_RETRIES = 2
+const CI_WORKERS = 1
+const DEFAULT_RETRIES = 0
+const PORT = 8000
+
 const isCi = Boolean(process.env.CI)
 
 /**
@@ -18,15 +23,15 @@ export default defineConfig({
   /* Fail the build on CI if you accidentally left test.only in the source code. */
   forbidOnly: isCi,
   /* Retry on CI only */
-  retries: isCi ? 2 : 0,
+  retries: isCi ? CI_RETRIES : DEFAULT_RETRIES,
   /* Opt out of parallel tests on CI. */
-  workers: isCi ? 1 : undefined,
+  workers: isCi ? CI_WORKERS : undefined,
   /* Reporter to use. See https://playwright.dev/docs/test-reporters */
   reporter: 'html',
   /* Shared settings for all the projects below. See https://playwright.dev/docs/api/class-testoptions. */
   use: {
     /* Base URL to use in actions like `await page.goto('/')`. */
-    baseURL: 'http://127.0.0.1:8000',
+    baseURL: `http://127.0.0.1:${PORT}`,
 
     /* Collect trace when retrying the failed test. See https://playwright.dev/docs/trace-viewer */
     trace: 'on-first-retry'
@@ -73,7 +78,7 @@ export default defineConfig({
   /* Run your local dev server before starting the tests */
   webServer: {
     command: 'npm run dev',
-    url: 'http://127.0.0.1:8000',
+    url: `http://127.0.0.1:${PORT}`,
     reuseExistingServer: !isCi
   }
 })
