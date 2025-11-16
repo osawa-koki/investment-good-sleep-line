@@ -14,7 +14,7 @@ export interface InvestmentSettings {
 export const defaultSettings: InvestmentSettings = {
   totalAssets: 1_000_000,
   investmentRatio: 50,
-  probabilityThreshold: 90.0,
+  probabilityThreshold: 99.5,
   expectedReturn: 7.5,
   risk: 18.0
 }

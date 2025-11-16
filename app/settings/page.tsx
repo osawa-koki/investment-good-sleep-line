@@ -7,6 +7,22 @@ import { toast } from 'react-toastify'
 import { useSettings, type InvestmentSettings, defaultSettings } from '@/contexts/SettingsContext'
 import Modal from '@/components/Modal'
 
+// 未保存の変更警告コンポーネント
+interface UnsavedChangesAlertProps {
+  className?: string
+}
+
+function UnsavedChangesAlert ({ className = 'mb-4' }: UnsavedChangesAlertProps): React.JSX.Element {
+  return (
+    <Alert variant="warning" className={className}>
+      <Alert.Heading>未保存の変更があります。</Alert.Heading>
+      <p className="mb-0">
+        設定を変更しましたが、まだ保存されていません。変更を保存するには「設定を保存」ボタンをクリックしてください。
+      </p>
+    </Alert>
+  )
+}
+
 // 代表的な資産クラスのリターンとリスク
 interface AssetClass {
   name: string
@@ -140,6 +156,8 @@ export default function SettingsPage (): React.JSX.Element {
   return (
     <Container className="py-5">
       <h1 className="mb-4">⚙️ 投資設定</h1>
+
+      {hasUnsavedChanges && <UnsavedChangesAlert />}
 
       <Card>
         <Card.Body>
@@ -321,14 +339,7 @@ export default function SettingsPage (): React.JSX.Element {
         </Card.Body>
       </Card>
 
-      {hasUnsavedChanges && (
-        <Alert variant="warning" className="mt-4">
-          <Alert.Heading>未保存の変更があります。</Alert.Heading>
-          <p className="mb-0">
-            設定を変更しましたが、まだ保存されていません。変更を保存するには「設定を保存」ボタンをクリックしてください。
-          </p>
-        </Alert>
-      )}
+      {hasUnsavedChanges && <UnsavedChangesAlert className="my-4" />}
 
       <Card className="mt-4">
         <Card.Body>
