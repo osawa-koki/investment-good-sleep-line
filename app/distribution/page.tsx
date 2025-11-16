@@ -748,7 +748,7 @@ export default function DistributionPage (): React.JSX.Element {
                   {getChangeSign(worstCaseLoss)}{formatCurrency(worstCaseLoss)} 円
                 </td>
                 <td style={getColorStyle(worstCaseLoss)}>
-                  {formatPercentage(worstCaseLoss, investmentAmount)}%
+                  {getChangeSign(worstCaseLoss)}{formatPercentage(worstCaseLoss, investmentAmount)}%
                 </td>
               </tr>
               <tr>
@@ -758,7 +758,7 @@ export default function DistributionPage (): React.JSX.Element {
                   {getChangeSign(totalAssetsChange)}{formatCurrency(totalAssetsChange)} 円
                 </td>
                 <td style={getColorStyle(totalAssetsChange)}>
-                  {formatPercentage(totalAssetsChange, settings.totalAssets)}%
+                  {getChangeSign(totalAssetsChange)}{formatPercentage(totalAssetsChange, settings.totalAssets)}%
                 </td>
               </tr>
             </tbody>
