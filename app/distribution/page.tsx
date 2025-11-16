@@ -1,8 +1,8 @@
 'use client'
 
-import React, { useMemo, useState } from 'react'
+import React, { useMemo, useState, useRef } from 'react'
 import Link from 'next/link'
-import { Container, Card, Form, Row, Col, Table } from 'react-bootstrap'
+import { Container, Card, Form, Row, Col, Table, Button } from 'react-bootstrap'
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -16,6 +16,9 @@ import {
 } from 'chart.js'
 import annotationPlugin from 'chartjs-plugin-annotation'
 import { Line } from 'react-chartjs-2'
+import jsPDF from 'jspdf'
+import html2canvas from 'html2canvas'
+import { toast } from 'react-toastify'
 
 import { useSettings } from '@/contexts/SettingsContext'
 import {
@@ -43,6 +46,7 @@ export default function DistributionPage (): React.JSX.Element {
   const [years, setYears] = useState(10)
   const [tempProbabilityThreshold, setTempProbabilityThreshold] = useState<number | null>(null)
   const [tempInvestmentRatio, setTempInvestmentRatio] = useState<number | null>(null)
+  const chartRef = useRef<HTMLDivElement>(null)
 
   // 投資額を計算（一時的な投資比率がある場合はそれを使用）
   const currentInvestmentRatio = tempInvestmentRatio ?? settings.investmentRatio
@@ -287,9 +291,281 @@ export default function DistributionPage (): React.JSX.Element {
   const totalAssetsWorstCase = worstCaseAssets + nonInvestmentAssets
   const totalAssetsChange = totalAssetsWorstCase - settings.totalAssets
 
+  // PDF生成関数
+  const generatePDF = async (): Promise<void> => {
+    try {
+      toast.info('PDFを生成しています...')
+
+      // PDFに含めるHTML要素を作成
+      const pdfContent = document.createElement('div')
+      pdfContent.style.width = '800px'
+      pdfContent.style.padding = '40px'
+      pdfContent.style.backgroundColor = '#ffffff'
+      pdfContent.style.fontFamily = 'sans-serif'
+      pdfContent.style.position = 'absolute'
+      pdfContent.style.left = '-9999px'
+
+      // タイトルと日付
+      const today = new Date().toLocaleDateString('ja-JP')
+      pdfContent.innerHTML = `
+        <div style="text-align: center; margin-bottom: 30px;">
+          <h1 style="font-size: 24px; margin-bottom: 10px;">投資分析レポート</h1>
+          <p style="font-size: 14px; color: #666;">生成日: ${today}</p>
+        </div>
+
+        <!-- 安眠チェック -->
+        <div style="background-color: #d1ecf1; border: 2px solid #0c5460; border-radius: 8px; padding: 20px; margin-bottom: 30px;">
+          <h2 style="font-size: 18px; margin-bottom: 15px;">💤 安眠チェック</h2>
+          <p style="font-size: 14px; margin-bottom: 10px;">
+            通常起こり得る確率範囲（${currentProbabilityThreshold}%）での最悪のケースで、資産全体が
+            <strong>${totalAssetsWorstCase.toLocaleString()} 円</strong>
+            （<strong>${totalAssetsChange >= 0 ? '+' : ''}${totalAssetsChange.toLocaleString()} 円</strong> /
+            <strong>${totalAssetsChange >= 0 ? '+' : ''}${((totalAssetsChange / settings.totalAssets) * 100).toFixed(1)}%</strong>）
+            にまで${totalAssetsChange >= 0 ? '増加' : '減少'}する可能性があります。
+          </p>
+          <p style="font-size: 14px; margin-bottom: 5px;"><strong>安眠できますか？</strong></p>
+          <p style="font-size: 14px; margin: 0;">できない場合は、投資比率を下げてください。</p>
+        </div>
+      `
+
+      document.body.appendChild(pdfContent)
+
+      // 安眠チェック部分をキャプチャ
+      const headerCanvas = await html2canvas(pdfContent, {
+        scale: 2,
+        backgroundColor: '#ffffff'
+      })
+
+      // グラフをキャプチャ
+      let chartCanvas: HTMLCanvasElement | null = null
+      if (chartRef.current != null) {
+        chartCanvas = await html2canvas(chartRef.current, {
+          scale: 2,
+          backgroundColor: '#ffffff'
+        })
+      }
+
+      // グラフの見方のHTML
+      const chartGuideDiv = document.createElement('div')
+      chartGuideDiv.style.width = '800px'
+      chartGuideDiv.style.padding = '40px'
+      chartGuideDiv.style.backgroundColor = '#ffffff'
+      chartGuideDiv.style.fontFamily = 'sans-serif'
+      chartGuideDiv.style.position = 'absolute'
+      chartGuideDiv.style.left = '-9999px'
+
+      chartGuideDiv.innerHTML = `
+        <div style="margin-top: 20px;">
+          <h2 style="font-size: 18px; margin-bottom: 15px; border-bottom: 2px solid #333; padding-bottom: 5px;">グラフの見方</h2>
+          <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
+            <thead>
+              <tr style="background-color: #f8f9fa; border-bottom: 2px solid #dee2e6;">
+                <th style="padding: 10px; text-align: left; font-weight: bold;">線の種類</th>
+                <th style="padding: 10px; text-align: left; font-weight: bold;">説明</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr style="border-bottom: 1px solid #ddd;">
+                <td style="padding: 10px;">
+                  <div style="display: flex; align-items: center;">
+                    <div style="width: 40px; height: 3px; background-color: rgb(255, 0, 0); margin-right: 10px;"></div>
+                    損益分岐点
+                  </div>
+                </td>
+                <td style="padding: 10px;">初期投資額の位置。この線より左側は損失、右側は利益を示します。</td>
+              </tr>
+              <tr style="border-bottom: 1px solid #ddd;">
+                <td style="padding: 10px;">
+                  <div style="display: flex; align-items: center;">
+                    <div style="width: 40px; height: 3px; background-color: rgb(0, 0, 255); margin-right: 10px;"></div>
+                    期待リターン
+                  </div>
+                </td>
+                <td style="padding: 10px;">期待される平均的な結果。最も起こりやすい資産額を示します。</td>
+              </tr>
+              <tr style="border-bottom: 1px solid #ddd;">
+                <td style="padding: 10px;">
+                  <div style="display: flex; align-items: center;">
+                    <div style="width: 40px; height: 3px; background-color: transparent; border-top: 3px dashed rgb(0, 128, 0); margin-right: 10px;"></div>
+                    ±1σ (標準偏差)
+                  </div>
+                </td>
+                <td style="padding: 10px;">2本の濃い緑の破線の間に約68%の確率で結果が収まります。</td>
+              </tr>
+              <tr style="border-bottom: 1px solid #ddd;">
+                <td style="padding: 10px;">
+                  <div style="display: flex; align-items: center;">
+                    <div style="width: 40px; height: 3px; background-color: transparent; border-top: 3px dashed rgb(0, 200, 0); margin-right: 10px;"></div>
+                    ±2σ (標準偏差)
+                  </div>
+                </td>
+                <td style="padding: 10px;">2本の緑の破線の間に約95%の確率で結果が収まります。</td>
+              </tr>
+              <tr>
+                <td style="padding: 10px;">
+                  <div style="display: flex; align-items: center;">
+                    <div style="width: 40px; height: 3px; background-color: transparent; border-top: 3px dashed rgb(255, 255, 0); margin-right: 10px;"></div>
+                    ±3σ (標準偏差)
+                  </div>
+                </td>
+                <td style="padding: 10px;">2本の黄色の破線の間に約99.7%の確率で結果が収まります。</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      `
+
+      document.body.appendChild(chartGuideDiv)
+
+      const chartGuideCanvas = await html2canvas(chartGuideDiv, {
+        scale: 2,
+        backgroundColor: '#ffffff'
+      })
+
+      // 前提条件のHTML
+      const conditionsDiv = document.createElement('div')
+      conditionsDiv.style.width = '800px'
+      conditionsDiv.style.padding = '40px'
+      conditionsDiv.style.backgroundColor = '#ffffff'
+      conditionsDiv.style.fontFamily = 'sans-serif'
+      conditionsDiv.style.position = 'absolute'
+      conditionsDiv.style.left = '-9999px'
+
+      conditionsDiv.innerHTML = `
+        <div style="margin-top: 20px;">
+          <h2 style="font-size: 18px; margin-bottom: 15px; border-bottom: 2px solid #333; padding-bottom: 5px;">利用した前提条件</h2>
+          <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
+            <tr style="border-bottom: 1px solid #ddd;">
+              <td style="padding: 10px; font-weight: bold; width: 40%;">資産総額</td>
+              <td style="padding: 10px;">${settings.totalAssets.toLocaleString()} 円</td>
+            </tr>
+            <tr style="border-bottom: 1px solid #ddd;">
+              <td style="padding: 10px; font-weight: bold;">投資比率</td>
+              <td style="padding: 10px;">${currentInvestmentRatio}%</td>
+            </tr>
+            <tr style="border-bottom: 1px solid #ddd;">
+              <td style="padding: 10px; font-weight: bold;">投資金額</td>
+              <td style="padding: 10px;">${investmentAmount.toLocaleString()} 円</td>
+            </tr>
+            <tr style="border-bottom: 1px solid #ddd;">
+              <td style="padding: 10px; font-weight: bold;">投資期間</td>
+              <td style="padding: 10px;">${years} 年</td>
+            </tr>
+            <tr style="border-bottom: 1px solid #ddd;">
+              <td style="padding: 10px; font-weight: bold;">想定リターン</td>
+              <td style="padding: 10px;">${settings.expectedReturn}% / 年</td>
+            </tr>
+            <tr style="border-bottom: 1px solid #ddd;">
+              <td style="padding: 10px; font-weight: bold;">想定リスク（標準偏差）</td>
+              <td style="padding: 10px;">${settings.risk}% / 年</td>
+            </tr>
+            <tr style="border-bottom: 1px solid #ddd;">
+              <td style="padding: 10px; font-weight: bold;">確率閾値</td>
+              <td style="padding: 10px;">${currentProbabilityThreshold}%</td>
+            </tr>
+            <tr style="border-bottom: 1px solid #ddd;">
+              <td style="padding: 10px; font-weight: bold;">期待値（平均）</td>
+              <td style="padding: 10px;">${Math.floor(mean).toLocaleString()} 円 (${profit >= 0 ? '+' : ''}${Math.floor(profit).toLocaleString()} 円 / ${profit >= 0 ? '+' : ''}${((profit / investmentAmount) * 100).toFixed(1)}%)</td>
+            </tr>
+            <tr style="border-bottom: 1px solid #ddd;">
+              <td style="padding: 10px; font-weight: bold;">標準偏差</td>
+              <td style="padding: 10px;">${Math.floor(stdDev).toLocaleString()} 円</td>
+            </tr>
+            <tr>
+              <td style="padding: 10px; font-weight: bold;">95%信頼区間</td>
+              <td style="padding: 10px;">${Math.floor(lowerBound).toLocaleString()} 円 〜 ${Math.floor(upperBound).toLocaleString()} 円</td>
+            </tr>
+          </table>
+        </div>
+      `
+
+      document.body.appendChild(conditionsDiv)
+
+      const conditionsCanvas = await html2canvas(conditionsDiv, {
+        scale: 2,
+        backgroundColor: '#ffffff'
+      })
+
+      // 一時要素を削除
+      document.body.removeChild(pdfContent)
+      document.body.removeChild(chartGuideDiv)
+      document.body.removeChild(conditionsDiv)
+
+      // PDFを作成
+      // eslint-disable-next-line new-cap
+      const pdf = new jsPDF('p', 'mm', 'a4')
+      const pageWidth = pdf.internal.pageSize.getWidth()
+      const pageHeight = pdf.internal.pageSize.getHeight()
+      const margin = 10
+      let yPosition = margin
+
+      // 安眠チェック部分を追加
+      const headerImgData = headerCanvas.toDataURL('image/png')
+      const headerImgWidth = pageWidth - 2 * margin
+      const headerImgHeight = (headerCanvas.height * headerImgWidth) / headerCanvas.width
+      pdf.addImage(headerImgData, 'PNG', margin, yPosition, headerImgWidth, headerImgHeight)
+      yPosition += headerImgHeight + 10
+
+      // グラフを追加
+      if (chartCanvas != null) {
+        const chartImgData = chartCanvas.toDataURL('image/png')
+        const chartImgWidth = pageWidth - 2 * margin
+        const chartImgHeight = (chartCanvas.height * chartImgWidth) / chartCanvas.width
+
+        // ページに収まらない場合は新しいページに
+        if (yPosition + chartImgHeight > pageHeight - margin) {
+          pdf.addPage()
+          yPosition = margin
+        }
+
+        pdf.addImage(chartImgData, 'PNG', margin, yPosition, chartImgWidth, chartImgHeight)
+        yPosition += chartImgHeight + 10
+      }
+
+      // グラフの見方を追加
+      const chartGuideImgData = chartGuideCanvas.toDataURL('image/png')
+      const chartGuideImgWidth = pageWidth - 2 * margin
+      const chartGuideImgHeight = (chartGuideCanvas.height * chartGuideImgWidth) / chartGuideCanvas.width
+
+      // ページに収まらない場合は新しいページに
+      if (yPosition + chartGuideImgHeight > pageHeight - margin) {
+        pdf.addPage()
+        yPosition = margin
+      }
+
+      pdf.addImage(chartGuideImgData, 'PNG', margin, yPosition, chartGuideImgWidth, chartGuideImgHeight)
+      yPosition += chartGuideImgHeight + 10
+
+      // 前提条件を追加
+      const conditionsImgData = conditionsCanvas.toDataURL('image/png')
+      const conditionsImgWidth = pageWidth - 2 * margin
+      const conditionsImgHeight = (conditionsCanvas.height * conditionsImgWidth) / conditionsCanvas.width
+
+      // ページに収まらない場合は新しいページに
+      if (yPosition + conditionsImgHeight > pageHeight - margin) {
+        pdf.addPage()
+        yPosition = margin
+      }
+
+      pdf.addImage(conditionsImgData, 'PNG', margin, yPosition, conditionsImgWidth, conditionsImgHeight)
+
+      // PDFを保存
+      pdf.save(`投資分析レポート_${today.replace(/\//g, '-')}.pdf`)
+      toast.success('PDFをダウンロードしました。')
+    } catch (error) {
+      console.error('PDF generation error:', error)
+      toast.error('PDFの生成に失敗しました。')
+    }
+  }
+
   return (
     <Container className="py-5">
-      <h1 className="mb-4">📊 資産分布グラフ</h1>
+      <div className="d-flex justify-content-between align-items-center mb-4">
+        <h1 className="mb-0">📊 資産分布グラフ</h1>
+        <Button variant="success" onClick={() => { void generatePDF() }}>
+          📥 PDFダウンロード
+        </Button>
+      </div>
 
       <Card className="mb-4">
         <Card.Body>
@@ -326,7 +602,7 @@ export default function DistributionPage (): React.JSX.Element {
 
       <Card className="mb-4">
         <Card.Body>
-          <div style={{ height: '400px' }}>
+          <div ref={chartRef} style={{ height: '400px' }}>
             <Line data={chartData} options={chartOptions} />
           </div>
         </Card.Body>
@@ -384,7 +660,7 @@ export default function DistributionPage (): React.JSX.Element {
                     ±1σ (標準偏差)
                   </div>
                 </td>
-                <td>リスクの範囲。2本の濃い緑の破線の間に約68%の確率で結果が収まります。</td>
+                <td>2本の濃い緑の破線の間に約68%の確率で結果が収まります。</td>
               </tr>
               <tr>
                 <td>
@@ -399,7 +675,7 @@ export default function DistributionPage (): React.JSX.Element {
                     ±2σ (標準偏差)
                   </div>
                 </td>
-                <td>より広いリスクの範囲。2本の緑の破線の間に約95%の確率で結果が収まります。</td>
+                <td>2本の緑の破線の間に約95%の確率で結果が収まります。</td>
               </tr>
               <tr>
                 <td>
@@ -414,7 +690,7 @@ export default function DistributionPage (): React.JSX.Element {
                     ±3σ (標準偏差)
                   </div>
                 </td>
-                <td>最も広いリスクの範囲。2本の黄色の破線の間に約99.7%の確率で結果が収まります。</td>
+                <td>2本の黄色の破線の間に約99.7%の確率で結果が収まります。</td>
               </tr>
             </tbody>
           </Table>
