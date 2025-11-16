@@ -14,6 +14,7 @@ import {
   Legend,
   Filler
 } from 'chart.js'
+import annotationPlugin from 'chartjs-plugin-annotation'
 import { Line } from 'react-chartjs-2'
 
 import { useSettings } from '@/contexts/SettingsContext'
@@ -33,7 +34,8 @@ ChartJS.register(
   Title,
   Tooltip,
   Legend,
-  Filler
+  Filler,
+  annotationPlugin
 )
 
 export default function DistributionPage (): React.JSX.Element {
@@ -61,6 +63,24 @@ export default function DistributionPage (): React.JSX.Element {
     return generateNormalDistributionData(mean, stdDev, 300, 3)
   }, [mean, stdDev])
 
+  // 損益分岐点（初期投資額）のインデックスを見つける
+  const breakEvenIndex = distributionData.findIndex(d => d.x >= investmentAmount)
+
+  // 期待リターン（平均値）のインデックスを見つける
+  const expectedReturnIndex = distributionData.findIndex(d => d.x >= mean)
+
+  // ±1σのインデックスを見つける
+  const plusOneSigmaIndex = distributionData.findIndex(d => d.x >= mean + stdDev)
+  const minusOneSigmaIndex = distributionData.findIndex(d => d.x >= mean - stdDev)
+
+  // ±2σのインデックスを見つける
+  const plusTwoSigmaIndex = distributionData.findIndex(d => d.x >= mean + 2 * stdDev)
+  const minusTwoSigmaIndex = distributionData.findIndex(d => d.x >= mean - 2 * stdDev)
+
+  // ±3σのインデックスを見つける
+  const plusThreeSigmaIndex = distributionData.findIndex(d => d.x >= mean + 3 * stdDev)
+  const minusThreeSigmaIndex = distributionData.findIndex(d => d.x >= mean - 3 * stdDev)
+
   // Chart.js用のデータ形式に変換
   const chartData = {
     labels: distributionData.map(d => d.x.toFixed(0)),
@@ -87,6 +107,100 @@ export default function DistributionPage (): React.JSX.Element {
       title: {
         display: true,
         text: `${years}年後の投資資産分布（正規分布近似）`
+      },
+      annotation: {
+        annotations: {
+          breakEvenLine: {
+            type: 'line' as const,
+            xMin: breakEvenIndex,
+            xMax: breakEvenIndex,
+            borderColor: 'rgb(255, 0, 0)',
+            borderWidth: 2,
+            label: {
+              display: true,
+              content: '損益分岐点',
+              position: 'start' as const
+            }
+          },
+          expectedReturnLine: {
+            type: 'line' as const,
+            xMin: expectedReturnIndex,
+            xMax: expectedReturnIndex,
+            borderColor: 'rgb(0, 0, 255)',
+            borderWidth: 2,
+            label: {
+              display: true,
+              content: '期待リターン',
+              position: 'end' as const
+            }
+          },
+          plusOneSigmaLine: {
+            type: 'line' as const,
+            xMin: plusOneSigmaIndex,
+            xMax: plusOneSigmaIndex,
+            borderColor: 'rgb(0, 128, 0)',
+            borderWidth: 2,
+            borderDash: [5, 5],
+            label: {
+              display: false
+            }
+          },
+          minusOneSigmaLine: {
+            type: 'line' as const,
+            xMin: minusOneSigmaIndex,
+            xMax: minusOneSigmaIndex,
+            borderColor: 'rgb(0, 128, 0)',
+            borderWidth: 2,
+            borderDash: [5, 5],
+            label: {
+              display: false
+            }
+          },
+          plusTwoSigmaLine: {
+            type: 'line' as const,
+            xMin: plusTwoSigmaIndex,
+            xMax: plusTwoSigmaIndex,
+            borderColor: 'rgb(0, 200, 0)',
+            borderWidth: 2,
+            borderDash: [5, 5],
+            label: {
+              display: false
+            }
+          },
+          minusTwoSigmaLine: {
+            type: 'line' as const,
+            xMin: minusTwoSigmaIndex,
+            xMax: minusTwoSigmaIndex,
+            borderColor: 'rgb(0, 200, 0)',
+            borderWidth: 2,
+            borderDash: [5, 5],
+            label: {
+              display: false
+            }
+          },
+          plusThreeSigmaLine: {
+            type: 'line' as const,
+            xMin: plusThreeSigmaIndex,
+            xMax: plusThreeSigmaIndex,
+            borderColor: 'rgb(255, 255, 0)',
+            borderWidth: 2,
+            borderDash: [5, 5],
+            label: {
+              display: false
+            }
+          },
+          minusThreeSigmaLine: {
+            type: 'line' as const,
+            xMin: minusThreeSigmaIndex,
+            xMax: minusThreeSigmaIndex,
+            borderColor: 'rgb(255, 255, 0)',
+            borderWidth: 2,
+            borderDash: [5, 5],
+            label: {
+              display: false
+            }
+          }
+        }
       },
       tooltip: {
         callbacks: {
@@ -212,6 +326,95 @@ export default function DistributionPage (): React.JSX.Element {
           <div style={{ height: '400px' }}>
             <Line data={chartData} options={chartOptions} />
           </div>
+        </Card.Body>
+      </Card>
+
+      <Card className="mb-4">
+        <Card.Body>
+          <h5>グラフの見方</h5>
+          <Table striped bordered>
+            <thead>
+              <tr>
+                <th>線の種類</th>
+                <th>説明</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>
+                  <div style={{ display: 'flex', alignItems: 'center' }}>
+                    <div style={{
+                      width: '40px',
+                      height: '3px',
+                      backgroundColor: 'rgb(255, 0, 0)',
+                      marginRight: '10px'
+                    }}></div>
+                    損益分岐点
+                  </div>
+                </td>
+                <td>初期投資額の位置。この線より左側は損失、右側は利益を示します。</td>
+              </tr>
+              <tr>
+                <td>
+                  <div style={{ display: 'flex', alignItems: 'center' }}>
+                    <div style={{
+                      width: '40px',
+                      height: '3px',
+                      backgroundColor: 'rgb(0, 0, 255)',
+                      marginRight: '10px'
+                    }}></div>
+                    期待リターン
+                  </div>
+                </td>
+                <td>期待される平均的な結果。最も起こりやすい資産額を示します。</td>
+              </tr>
+              <tr>
+                <td>
+                  <div style={{ display: 'flex', alignItems: 'center' }}>
+                    <div style={{
+                      width: '40px',
+                      height: '3px',
+                      backgroundColor: 'transparent',
+                      borderTop: '3px dashed rgb(0, 128, 0)',
+                      marginRight: '10px'
+                    }}></div>
+                    ±1σ (標準偏差)
+                  </div>
+                </td>
+                <td>リスクの範囲。2本の濃い緑の破線の間に約68%の確率で結果が収まります。</td>
+              </tr>
+              <tr>
+                <td>
+                  <div style={{ display: 'flex', alignItems: 'center' }}>
+                    <div style={{
+                      width: '40px',
+                      height: '3px',
+                      backgroundColor: 'transparent',
+                      borderTop: '3px dashed rgb(0, 200, 0)',
+                      marginRight: '10px'
+                    }}></div>
+                    ±2σ (標準偏差)
+                  </div>
+                </td>
+                <td>より広いリスクの範囲。2本の緑の破線の間に約95%の確率で結果が収まります。</td>
+              </tr>
+              <tr>
+                <td>
+                  <div style={{ display: 'flex', alignItems: 'center' }}>
+                    <div style={{
+                      width: '40px',
+                      height: '3px',
+                      backgroundColor: 'transparent',
+                      borderTop: '3px dashed rgb(255, 255, 0)',
+                      marginRight: '10px'
+                    }}></div>
+                    ±3σ (標準偏差)
+                  </div>
+                </td>
+                <td>最も広いリスクの範囲。2本の黄色の破線の間に約99.7%の確率で結果が収まります。</td>
+              </tr>
+            </tbody>
+          </Table>
         </Card.Body>
       </Card>
 
