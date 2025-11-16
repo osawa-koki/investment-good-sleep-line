@@ -1,8 +1,9 @@
 'use client'
 
 import React, { useState, useEffect, useMemo } from 'react'
-import { Container, Form, Button, Card, Row, Col, Table, Alert } from 'react-bootstrap'
+import { Container, Form, Button, Card, Row, Col, Table, Alert, Collapse } from 'react-bootstrap'
 import { toast } from 'react-toastify'
+import { BsChevronDown, BsChevronUp } from 'react-icons/bs'
 
 import { useSettings, type InvestmentSettings, defaultSettings } from '@/contexts/SettingsContext'
 import Modal from '@/components/Modal'
@@ -67,6 +68,9 @@ export default function SettingsPage (): React.JSX.Element {
 
   // モーダル状態
   const [isResetModalOpen, setIsResetModalOpen] = useState(false)
+
+  // 資産クラステーブルの開閉状態
+  const [isAssetClassOpen, setIsAssetClassOpen] = useState(false)
 
   // 未保存の変更があるかチェック
   const hasUnsavedChanges = useMemo(() => (
@@ -302,42 +306,49 @@ export default function SettingsPage (): React.JSX.Element {
             </Row>
 
             <Card className="mb-4">
-              <Card.Header>
+              <Card.Header
+                onClick={() => { setIsAssetClassOpen(!isAssetClassOpen) }}
+                style={{ cursor: 'pointer' }}
+                className="d-flex justify-content-between align-items-center"
+              >
                 <h6 className="mb-0">代表的な資産クラスのリターンとリスク</h6>
+                {isAssetClassOpen ? <BsChevronUp /> : <BsChevronDown />}
               </Card.Header>
-              <Card.Body>
-                <Table striped bordered hover responsive>
-                  <thead>
-                    <tr>
-                      <th>資産クラス</th>
-                      <th>想定リターン (%/年)</th>
-                      <th>想定リスク (%/年)</th>
-                      <th>操作</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {assetClasses.map((assetClass, index) => (
-                      <tr key={index}>
-                        <td>{assetClass.name}</td>
-                        <td>{assetClass.expectedReturn.toFixed(DECIMAL_ONE)}%</td>
-                        <td>{assetClass.risk.toFixed(DECIMAL_ONE)}%</td>
-                        <td>
-                          <Button
-                            variant="outline-primary"
-                            size="sm"
-                            onClick={() => { handleApplyAssetClass(assetClass) }}
-                          >
-                            適用
-                          </Button>
-                        </td>
+              <Collapse in={isAssetClassOpen}>
+                <Card.Body>
+                  <Table striped bordered hover responsive>
+                    <thead>
+                      <tr>
+                        <th>資産クラス</th>
+                        <th>想定リターン (%/年)</th>
+                        <th>想定リスク (%/年)</th>
+                        <th>操作</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </Table>
-                <Form.Text className="text-muted">
-                  資産クラスを選択すると、その想定リターンとリスクがフォームに適用されます。
-                </Form.Text>
-              </Card.Body>
+                    </thead>
+                    <tbody>
+                      {assetClasses.map((assetClass, index) => (
+                        <tr key={index}>
+                          <td>{assetClass.name}</td>
+                          <td>{assetClass.expectedReturn.toFixed(DECIMAL_ONE)}%</td>
+                          <td>{assetClass.risk.toFixed(DECIMAL_ONE)}%</td>
+                          <td>
+                            <Button
+                              variant="outline-primary"
+                              size="sm"
+                              onClick={() => { handleApplyAssetClass(assetClass) }}
+                            >
+                              適用
+                            </Button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </Table>
+                  <Form.Text className="text-muted">
+                    資産クラスを選択すると、その想定リターンとリスクがフォームに適用されます。
+                  </Form.Text>
+                </Card.Body>
+              </Collapse>
             </Card>
 
             <div className="d-flex gap-2">
