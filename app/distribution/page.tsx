@@ -20,9 +20,9 @@ import { Line } from 'react-chartjs-2'
 import { useSettings } from '@/contexts/SettingsContext'
 import {
   calculateInvestmentDistribution,
-  generateNormalDistributionData,
+  generateLognormalDistributionData,
   normalInverseCDF,
-  normalCDFGeneral
+  lognormalCDF
 } from '@/utils/normalDistribution'
 
 // Chart.jsの登録
@@ -48,8 +48,8 @@ export default function DistributionPage (): React.JSX.Element {
   const currentInvestmentRatio = tempInvestmentRatio ?? settings.investmentRatio
   const investmentAmount = settings.totalAssets * currentInvestmentRatio / 100
 
-  // 分布のパラメータを計算
-  const { mean, stdDev } = useMemo(() => {
+  // 分布のパラメータを計算（対数正規分布）
+  const { mean, stdDev, logMean, logStdDev } = useMemo(() => {
     return calculateInvestmentDistribution({
       initialAssets: investmentAmount,
       expectedReturn: settings.expectedReturn,
@@ -58,10 +58,10 @@ export default function DistributionPage (): React.JSX.Element {
     })
   }, [investmentAmount, settings.expectedReturn, settings.risk, years])
 
-  // グラフ用のデータを生成
+  // グラフ用のデータを生成（対数正規分布）
   const distributionData = useMemo(() => {
-    return generateNormalDistributionData(mean, stdDev, 300, 3)
-  }, [mean, stdDev])
+    return generateLognormalDistributionData(logMean, logStdDev, 300, 3)
+  }, [logMean, logStdDev])
 
   // 損益分岐点（初期投資額）のインデックスを見つける
   const breakEvenIndex = distributionData.findIndex(d => d.x >= investmentAmount)
@@ -106,7 +106,7 @@ export default function DistributionPage (): React.JSX.Element {
       },
       title: {
         display: true,
-        text: `${years}年後の投資資産分布（正規分布近似）`
+        text: `${years}年後の投資資産分布（対数正規分布）`
       },
       annotation: {
         annotations: {
@@ -212,8 +212,8 @@ export default function DistributionPage (): React.JSX.Element {
           label: (context: any) => {
             const index = context.dataIndex
             const value = distributionData[index].x
-            // この金額以下になる確率を計算（CDF）
-            const cdfValue = normalCDFGeneral(value, mean, stdDev)
+            // この金額以下になる確率を計算（対数正規分布のCDF）
+            const cdfValue = lognormalCDF(value, logMean, logStdDev)
             // この金額以下になる確率（パーセント）
             const probabilityBelow = (cdfValue * 100).toFixed(1)
             // 増減額と増減率を計算
@@ -262,20 +262,23 @@ export default function DistributionPage (): React.JSX.Element {
     }
   }
 
-  // 95%信頼区間を計算（正規分布）
-  const lowerBound = Math.max(0, mean - 1.96 * stdDev) // マイナスにならないように
-  const upperBound = mean + 1.96 * stdDev
+  // 95%信頼区間を計算（対数正規分布）
+  // 対数正規分布の95%信頼区間: exp(logMean ± 1.96 × logStdDev)
+  const lowerBound = Math.exp(logMean - 1.96 * logStdDev)
+  const upperBound = Math.exp(logMean + 1.96 * logStdDev)
 
   // 利益額を計算
   const profit = mean - investmentAmount
 
-  // 確率閾値に基づく最悪ケースを計算
-  // 確率閾値が98%の場合、下位2%に相当するz値を求める
+  // 確率閾値に基づく最悪ケースを計算（対数正規分布）
+  // 確率閾値が90%の場合、下位10%に相当する値を求める
   // tempProbabilityThresholdがnullでない場合はそれを使用、nullの場合はsettingsの値を使用
   const currentProbabilityThreshold = tempProbabilityThreshold ?? settings.probabilityThreshold
   const probabilityDecimal = currentProbabilityThreshold / 100
-  const zScore = normalInverseCDF(1 - probabilityDecimal) // 下位(1-閾値)%のz値
-  const worstCaseAssets = Math.max(0, mean + zScore * stdDev) // マイナスにならないように
+  // 下位(100-閾値)%のz値を求める
+  const zScore = normalInverseCDF(1 - probabilityDecimal)
+  // 対数正規分布の場合: exp(logMean + zScore × logStdDev)
+  const worstCaseAssets = Math.exp(logMean + zScore * logStdDev)
   const worstCaseLoss = worstCaseAssets - investmentAmount
 
   // 投資以外の資産（元の総資産 - 投資額）
@@ -420,7 +423,7 @@ export default function DistributionPage (): React.JSX.Element {
 
       <Card className="mb-4">
         <Card.Body>
-          <h5>統計情報（正規分布近似）</h5>
+          <h5>統計情報（対数正規分布）</h5>
           <ul className="mb-0">
             <li>
               <Link href="/words?q=mean" style={{ textDecoration: 'none' }}>平均（期待値）</Link>: {mean.toLocaleString('ja-JP', { maximumFractionDigits: 0 })} 円{' '}
@@ -432,7 +435,7 @@ export default function DistributionPage (): React.JSX.Element {
             <li><Link href="/words?q=confidence-interval" style={{ textDecoration: 'none' }}>95%信頼区間</Link>: {lowerBound.toLocaleString('ja-JP', { maximumFractionDigits: 0 })} 円 〜 {upperBound.toLocaleString('ja-JP', { maximumFractionDigits: 0 })} 円</li>
           </ul>
           <Form.Text className="text-muted d-block mt-2">
-            ※ 正規分布で近似し、マイナス部分は切り捨てています。95%の確率で、{years}年後の資産はこの範囲内に収まります。
+            ※ 対数正規分布でモデル化しています。資産額は常に0以上となり、上方向の可能性が大きくなります。95%の確率で、{years}年後の資産はこの範囲内に収まります。
           </Form.Text>
         </Card.Body>
       </Card>

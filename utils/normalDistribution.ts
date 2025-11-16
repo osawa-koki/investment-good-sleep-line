@@ -128,25 +128,91 @@ export interface InvestmentDistributionParams {
 }
 
 /**
- * 投資後の資産の正規分布パラメータを計算（複利考慮版）
+ * 投資後の資産の対数正規分布パラメータを計算（正しい複利考慮版）
  * @param params - 投資パラメータ
- * @returns { mean, stdDev } - 正規分布の平均と標準偏差
+ * @returns { mean, stdDev, logMean, logStdDev } - 対数正規分布のパラメータ
  */
-export function calculateInvestmentDistribution (params: InvestmentDistributionParams): { mean: number, stdDev: number } {
+export function calculateInvestmentDistribution (params: InvestmentDistributionParams): { mean: number, stdDev: number, logMean: number, logStdDev: number } {
   const { initialAssets, expectedReturn, risk, years } = params
 
   // リターンとリスクを小数に変換
   const muRate = expectedReturn / 100
   const sigmaRate = risk / 100
 
-  // 正規分布近似（複利考慮）
-  // 平均 = 初期資産 × (1 + リターン率)^期間
-  const mean = initialAssets * Math.pow(1 + muRate, years)
+  // 対数正規分布のパラメータ（対数スケール）
+  // ln(S_t) ~ N(ln(S_0) + (μ - σ²/2)×t, σ×√t)
+  const logMean = Math.log(initialAssets) + (muRate - sigmaRate * sigmaRate / 2) * years
+  const logStdDev = sigmaRate * Math.sqrt(years)
 
-  // 標準偏差 = 平均 × リスク × √期間（複利を考慮）
-  const stdDev = mean * sigmaRate * Math.sqrt(years)
+  // 実際の資産額の平均と標準偏差（対数正規分布）
+  // E[S_t] = S_0 × exp(μ×t)
+  const mean = initialAssets * Math.exp(muRate * years)
 
-  return { mean, stdDev }
+  // Var[S_t] = (E[S_t])² × (exp(σ²×t) - 1)
+  // StdDev[S_t] = E[S_t] × √(exp(σ²×t) - 1)
+  const stdDev = mean * Math.sqrt(Math.exp(sigmaRate * sigmaRate * years) - 1)
+
+  return { mean, stdDev, logMean, logStdDev }
+}
+
+/**
+ * 対数正規分布の確率密度関数 (PDF)
+ * @param x - 評価する点（資産額）
+ * @param logMean - 対数平均
+ * @param logStdDev - 対数標準偏差
+ * @returns 確率密度
+ */
+export function lognormalPDF (x: number, logMean: number, logStdDev: number): number {
+  if (x <= 0) return 0
+  const z = (Math.log(x) - logMean) / logStdDev
+  return Math.exp(-0.5 * z * z) / (x * logStdDev * Math.sqrt(2 * Math.PI))
+}
+
+/**
+ * 対数正規分布の累積分布関数 (CDF)
+ * @param x - 評価する点（資産額）
+ * @param logMean - 対数平均
+ * @param logStdDev - 対数標準偏差
+ * @returns P(X <= x) の確率
+ */
+export function lognormalCDF (x: number, logMean: number, logStdDev: number): number {
+  if (x <= 0) return 0
+  const z = (Math.log(x) - logMean) / logStdDev
+  return normalCDF(z)
+}
+
+/**
+ * 対数正規分布のグラフ描画用データポイントを生成
+ * @param logMean - 対数平均
+ * @param logStdDev - 対数標準偏差
+ * @param numPoints - データポイント数
+ * @param numStdDev - 対数平均から何標準偏差分を表示するか
+ * @returns { x: number, y: number }[] - x座標とy座標の配列
+ */
+export function generateLognormalDistributionData (
+  logMean: number,
+  logStdDev: number,
+  numPoints: number = 300,
+  numStdDev: number = 3
+): Array<{ x: number, y: number }> {
+  const data: Array<{ x: number, y: number }> = []
+
+  // 対数スケールでの範囲を計算
+  const logXMin = Math.max(0, logMean - numStdDev * logStdDev)
+  const logXMax = logMean + numStdDev * logStdDev
+
+  // 実際の資産額スケールでの範囲
+  const xMin = Math.exp(logXMin)
+  const xMax = Math.exp(logXMax)
+  const step = (xMax - xMin) / (numPoints - 1)
+
+  for (let i = 0; i < numPoints; i++) {
+    const x = xMin + i * step
+    const y = lognormalPDF(x, logMean, logStdDev)
+    data.push({ x, y })
+  }
+
+  return data
 }
 
 /**
