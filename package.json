@@ -23,7 +23,7 @@
   },
   "dependencies": {
     "@types/node": "^24.10.1",
-    "bootstrap": "^5.3.5",
+    "bootstrap": "^5.3.8",
     "chart.js": "^4.5.1",
     "next": "^16.0.3",
     "react": "^18.3.1",
