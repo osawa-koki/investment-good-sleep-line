@@ -3,6 +3,8 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react'
 import { usePathname } from 'next/navigation'
 
+const TIMEOUT_DELAY = 0
+
 export interface InvestmentSettings {
   totalAssets: number // 資産総額
   investmentRatio: number // 投資比率 (0-100)
@@ -11,12 +13,18 @@ export interface InvestmentSettings {
   risk: number // リスク (%)
 }
 
+const DEFAULT_TOTAL_ASSETS = 1_000_000
+const DEFAULT_INVESTMENT_RATIO = 50
+const DEFAULT_PROBABILITY_THRESHOLD = 99.5
+const DEFAULT_EXPECTED_RETURN = 7.5
+const DEFAULT_RISK = 18.0
+
 export const defaultSettings: InvestmentSettings = {
-  totalAssets: 1_000_000,
-  investmentRatio: 50,
-  probabilityThreshold: 99.5,
-  expectedReturn: 7.5,
-  risk: 18.0
+  totalAssets: DEFAULT_TOTAL_ASSETS,
+  investmentRatio: DEFAULT_INVESTMENT_RATIO,
+  probabilityThreshold: DEFAULT_PROBABILITY_THRESHOLD,
+  expectedReturn: DEFAULT_EXPECTED_RETURN,
+  risk: DEFAULT_RISK
 }
 
 interface SettingsContextType {
@@ -36,36 +44,42 @@ export function SettingsProvider ({ children }: { children: React.ReactNode }): 
 
   // 初回マウント時にlocalStorageから設定を読み込む
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const stored = localStorage.getItem(STORAGE_KEY)
-      if (stored !== null) {
-        try {
-          const parsed = JSON.parse(stored) as InvestmentSettings
-          setSettings(parsed)
-        } catch (error) {
-          console.error('Failed to parse stored settings:', error)
-        }
-      }
+    if (typeof window === 'undefined') {
+      return
+    }
+
+    const stored = localStorage.getItem(STORAGE_KEY)
+    if (stored === null) {
+      return
+    }
+
+    try {
+      const parsed: unknown = JSON.parse(stored)
+      setSettings(parsed as InvestmentSettings)
+    } catch {
+      // 設定のパースに失敗した場合はデフォルトを使用
     }
   }, [])
 
   // URLを更新するuseEffect（settingsが変更された時のみ）
   useEffect(() => {
-    if (shouldUpdateUrl) {
-      const params = new URLSearchParams()
-      params.set('totalAssets', settings.totalAssets.toString())
-      params.set('investmentRatio', settings.investmentRatio.toString())
-      params.set('probabilityThreshold', settings.probabilityThreshold.toString())
-      params.set('expectedReturn', settings.expectedReturn.toString())
-      params.set('risk', settings.risk.toString())
-
-      const newUrl = `${pathname}?${params.toString()}`
-      window.history.replaceState({}, '', newUrl)
-      setShouldUpdateUrl(false)
+    if (!shouldUpdateUrl) {
+      return
     }
+
+    const params = new URLSearchParams()
+    params.set('totalAssets', settings.totalAssets.toString())
+    params.set('investmentRatio', settings.investmentRatio.toString())
+    params.set('probabilityThreshold', settings.probabilityThreshold.toString())
+    params.set('expectedReturn', settings.expectedReturn.toString())
+    params.set('risk', settings.risk.toString())
+
+    const newUrl = `${pathname}?${params.toString()}`
+    window.history.replaceState({}, '', newUrl)
+    setShouldUpdateUrl(false)
   }, [settings, shouldUpdateUrl, pathname])
 
-  const updateSettings = useCallback((newSettings: Partial<InvestmentSettings>) => {
+  const updateSettings = useCallback((newSettings: Partial<InvestmentSettings>): void => {
     setSettings(prev => {
       const updated = { ...prev, ...newSettings }
       // localStorageに保存（丸め処理は呼び出し側で実施済み）
@@ -77,7 +91,7 @@ export function SettingsProvider ({ children }: { children: React.ReactNode }): 
     setShouldUpdateUrl(true)
   }, [])
 
-  const resetSettings = useCallback(() => {
+  const resetSettings = useCallback((): void => {
     setSettings(defaultSettings)
     // localStorageから削除
     if (typeof window !== 'undefined') {
@@ -86,11 +100,13 @@ export function SettingsProvider ({ children }: { children: React.ReactNode }): 
     // URLパラメータをクリア（次のレンダリングで反映される）
     setTimeout(() => {
       window.history.replaceState({}, '', pathname)
-    }, 0)
+    }, TIMEOUT_DELAY)
   }, [pathname])
 
+  const contextValue = { settings, updateSettings, resetSettings }
+
   return (
-    <SettingsContext.Provider value={{ settings, updateSettings, resetSettings }}>
+    <SettingsContext.Provider value={contextValue}>
       {children}
     </SettingsContext.Provider>
   )

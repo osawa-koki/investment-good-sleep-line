@@ -5,6 +5,11 @@ import { Container, Card } from 'react-bootstrap'
 import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 
+const SCROLL_OFFSET = 100
+const HIGHLIGHT_BACKGROUND = '#fffbcc'
+const DEFAULT_BACKGROUND = 'white'
+const TRANSITION_DURATION = '0.3s'
+
 interface Term {
   id: string
   title: string
@@ -62,18 +67,21 @@ export default function WordsPage (): React.JSX.Element {
   const termRefs = useRef<Record<string, HTMLDivElement | null>>({})
 
   useEffect(() => {
-    if (q !== null && q !== '' && termRefs.current[q] !== null && termRefs.current[q] !== undefined) {
-      // スクロール位置を調整（ヘッダー分のオフセットを考慮）
-      const element = termRefs.current[q]
-      if (element !== null && element !== undefined) {
-        const offset = 100 // ヘッダー分のオフセット
-        const elementPosition = element.getBoundingClientRect().top + window.scrollY
-        window.scrollTo({
-          top: elementPosition - offset,
-          behavior: 'smooth'
-        })
-      }
+    if (q === null || q === '') {
+      return
     }
+
+    const element = termRefs.current[q]
+    if (element === null || element === undefined) {
+      return
+    }
+
+    // スクロール位置を調整（ヘッダー分のオフセットを考慮）
+    const elementPosition = element.getBoundingClientRect().top + window.scrollY
+    window.scrollTo({
+      top: elementPosition - SCROLL_OFFSET,
+      behavior: 'smooth'
+    })
   }, [q])
 
   return (
@@ -89,8 +97,8 @@ export default function WordsPage (): React.JSX.Element {
           className="mb-3"
           ref={(el) => { termRefs.current[term.id] = el }}
           style={{
-            backgroundColor: q === term.id ? '#fffbcc' : 'white',
-            transition: 'background-color 0.3s ease'
+            backgroundColor: q === term.id ? HIGHLIGHT_BACKGROUND : DEFAULT_BACKGROUND,
+            transition: `background-color ${TRANSITION_DURATION} ease`
           }}
         >
           <Card.Body>
