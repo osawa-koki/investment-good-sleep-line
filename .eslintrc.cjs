@@ -25,5 +25,10 @@ module.exports = {
     'next-env.d.ts',
     'node_modules'
   ],
+  settings: {
+    react: {
+      version: 'detect'
+    }
+  },
   rules: {}
 }
