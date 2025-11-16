@@ -68,9 +68,6 @@ export default function SettingsPage (): React.JSX.Element {
   // モーダル状態
   const [isResetModalOpen, setIsResetModalOpen] = useState(false)
 
-  // 初回マウント時かどうかを追跡
-  const isInitialMount = React.useRef(true)
-
   // 未保存の変更があるかチェック
   const hasUnsavedChanges = useMemo(() => (
     formData.totalAssets !== settings.totalAssets ||
@@ -80,12 +77,9 @@ export default function SettingsPage (): React.JSX.Element {
     formData.risk !== settings.risk
   ), [formData, settings])
 
-  // 初回マウント時のみsettingsからフォームを初期化
+  // settingsが変更されたらformDataを同期
   useEffect(() => {
-    if (isInitialMount.current) {
-      setFormData(settings)
-      isInitialMount.current = false
-    }
+    setFormData(settings)
   }, [settings])
 
   const handleChange = (field: keyof InvestmentSettings) => (e: React.ChangeEvent<HTMLInputElement>): void => {

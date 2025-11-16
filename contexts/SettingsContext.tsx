@@ -1,9 +1,6 @@
 'use client'
 
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react'
-import { usePathname } from 'next/navigation'
-
-const TIMEOUT_DELAY = 0
 
 export interface InvestmentSettings {
   totalAssets: number // 資産総額
@@ -38,9 +35,7 @@ const SettingsContext = createContext<SettingsContextType | undefined>(undefined
 const STORAGE_KEY = 'investment-settings'
 
 export function SettingsProvider ({ children }: { children: React.ReactNode }): React.JSX.Element {
-  const pathname = usePathname()
   const [settings, setSettings] = useState<InvestmentSettings>(defaultSettings)
-  const [shouldUpdateUrl, setShouldUpdateUrl] = useState(false)
 
   // 初回マウント時にlocalStorageから設定を読み込む
   useEffect(() => {
@@ -61,24 +56,6 @@ export function SettingsProvider ({ children }: { children: React.ReactNode }): 
     }
   }, [])
 
-  // URLを更新するuseEffect（settingsが変更された時のみ）
-  useEffect(() => {
-    if (!shouldUpdateUrl) {
-      return
-    }
-
-    const params = new URLSearchParams()
-    params.set('totalAssets', settings.totalAssets.toString())
-    params.set('investmentRatio', settings.investmentRatio.toString())
-    params.set('probabilityThreshold', settings.probabilityThreshold.toString())
-    params.set('expectedReturn', settings.expectedReturn.toString())
-    params.set('risk', settings.risk.toString())
-
-    const newUrl = `${pathname}?${params.toString()}`
-    window.history.replaceState({}, '', newUrl)
-    setShouldUpdateUrl(false)
-  }, [settings, shouldUpdateUrl, pathname])
-
   const updateSettings = useCallback((newSettings: Partial<InvestmentSettings>): void => {
     setSettings(prev => {
       const updated = { ...prev, ...newSettings }
@@ -88,7 +65,6 @@ export function SettingsProvider ({ children }: { children: React.ReactNode }): 
       }
       return updated
     })
-    setShouldUpdateUrl(true)
   }, [])
 
   const resetSettings = useCallback((): void => {
@@ -97,11 +73,7 @@ export function SettingsProvider ({ children }: { children: React.ReactNode }): 
     if (typeof window !== 'undefined') {
       localStorage.removeItem(STORAGE_KEY)
     }
-    // URLパラメータをクリア（次のレンダリングで反映される）
-    setTimeout(() => {
-      window.history.replaceState({}, '', pathname)
-    }, TIMEOUT_DELAY)
-  }, [pathname])
+  }, [])
 
   const contextValue = { settings, updateSettings, resetSettings }
 
